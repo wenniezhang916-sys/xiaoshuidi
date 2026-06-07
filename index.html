@@ -60,9 +60,10 @@
         </div>
       </div>
 
-      <button id="menuToggle" class="menu-toggle">☰</button>
+      <button id="menuToggle" class="menu-toggle" type="button" aria-label="打开菜单">☰</button>
 
-<nav class="nav">
+
+      <nav class="nav">
         <button class="nav-btn active" data-page="clock">时钟</button>
         <button class="nav-btn" data-page="pomodoro">番茄钟</button>
         <button class="nav-btn" data-page="todos">待办清单</button>
@@ -126,7 +127,7 @@
         </div>
 
         <div class="pomodoro-extra">
-          <label>从待办选择</label>
+          <label>关联待办</label>
           <select id="pomodoroTaskSelect">
             <option value="">不关联待办</option>
           </select>
@@ -224,7 +225,7 @@
     <section id="stats" class="page">
       <div class="card block">
         <h2>学习统计</h2>
-        <p class="hint">根据番茄钟、自习室和打卡日历自动生成每日 / 每周报告。</p>
+        <p class="hint">番茄钟、自习室和打卡记录会自动汇总在这里。</p>
 
         <div class="stats-grid">
           <div class="stat-card">
@@ -247,12 +248,12 @@
 
         <div class="report-card">
           <h3>今日学习报告</h3>
-          <div id="dailyReport" class="report-text"></div>
+          <div id="dailyReport" class="report-text">今天还没有学习记录。</div>
         </div>
 
         <div class="report-card">
           <h3>本周学习报告</h3>
-          <div id="weeklyReport" class="report-text"></div>
+          <div id="weeklyReport" class="report-text">本周还没有学习记录。</div>
         </div>
       </div>
     </section>
@@ -260,7 +261,7 @@
     <section id="studyroom" class="page">
       <div class="card block">
         <h2>自习室</h2>
-        <p class="hint">GitHub Pages 版为本地模拟。真正多人实时连线以后可以接免费 Supabase。</p>
+        <p class="hint">输入同一个加入码即可进入同一个实时自习室。房间里会显示每个人在学什么、今日学习时长和排行榜。</p>
 
         <div class="add-row wrap">
           <input id="roomName" placeholder="自习室名称">

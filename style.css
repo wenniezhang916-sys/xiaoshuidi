@@ -598,47 +598,70 @@ body.dark .clock-inner{
 }
 
 
-/* v6: statistics + realtime study room + pomodoro upgrades */
+/* =========================
+   小水滴 v7：统计 / 正向计时 / 多人自习室 / 手机菜单
+   ========================= */
+
+.menu-toggle{
+  display:none;
+  border:none;
+  background:var(--accent-soft);
+  color:var(--text);
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  font-size:20px;
+  flex-shrink:0;
+}
+
 .pomodoro-extra{
   max-width:480px;
-  margin:10px auto 14px;
+  margin:12px auto 18px;
 }
+
 .mode-switch{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:8px;
   margin-top:8px;
 }
+
 .mode-btn{
   background:var(--card-soft);
   border:1px solid var(--line);
 }
+
 .mode-btn.active{
   background:var(--accent);
   color:#fffdf9;
 }
+
 .stats-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:14px;
   margin:18px 0;
 }
+
 .stat-card{
   background:var(--card-soft);
   border:1px solid var(--line);
   border-radius:22px;
   padding:18px;
 }
+
 .stat-card span{
   display:block;
   color:var(--muted);
   font-size:13px;
   margin-bottom:8px;
 }
+
 .stat-card strong{
   font-family:var(--num);
   font-size:28px;
 }
+
 .report-card{
   background:var(--card-soft);
   border:1px solid var(--line);
@@ -646,15 +669,18 @@ body.dark .clock-inner{
   padding:18px;
   margin-top:14px;
 }
+
 .report-text{
   color:var(--text);
   line-height:1.8;
   white-space:pre-wrap;
 }
+
 .seat.active-study{
   border-color:var(--accent);
   box-shadow:0 0 0 3px rgba(200,183,164,.18);
 }
+
 .room-status-dot{
   display:inline-block;
   width:8px;
@@ -663,9 +689,84 @@ body.dark .clock-inner{
   background:#87b38d;
   margin-right:6px;
 }
+
 @media(max-width:900px){
   .stats-grid{grid-template-columns:repeat(2,1fr)}
 }
+
+@media(max-width:768px){
+  .topbar{
+    width:100%;
+    margin:0;
+    padding:10px 12px;
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    z-index:9999;
+    border-radius:0;
+  }
+
+  .menu-toggle{
+    display:grid;
+    place-items:center;
+    order:1;
+  }
+
+  .brand{
+    order:2;
+    flex:1;
+  }
+
+  .top-actions{
+    order:3;
+    width:auto;
+    margin-left:auto;
+    display:flex;
+    gap:6px;
+  }
+
+  .top-actions button{
+    padding:8px 10px;
+    font-size:12px;
+  }
+
+  .nav{
+    position:fixed;
+    top:64px;
+    left:-280px;
+    width:260px;
+    height:calc(100vh - 64px);
+    background:var(--card);
+    border-right:1px solid var(--line);
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:flex-start;
+    padding:18px;
+    gap:10px;
+    transition:left .25s ease;
+    z-index:9998;
+    box-shadow:var(--shadow);
+    overflow-y:auto;
+  }
+
+  .nav.open{
+    left:0;
+  }
+
+  .nav-btn{
+    width:100%;
+    text-align:left;
+    padding:12px 14px;
+    border-radius:16px;
+    font-size:14px;
+  }
+
+  .page{
+    margin:92px auto 120px;
+  }
+}
+
 @media(max-width:560px){
   .stats-grid{grid-template-columns:1fr}
 }

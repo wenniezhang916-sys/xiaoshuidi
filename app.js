@@ -750,20 +750,18 @@ if(menuToggle && mobileNav){
 
 
 /* =========================
-   v6 features: stats, reports, realtime study room, count-up timer, task-linked pomodoro
+   小水滴 v7：统计、报告、正向计时、待办关联、多用户自习室
    ========================= */
 
-let timerMode = "pomodoro";
-let countupSeconds = 0;
-let countupInterval = null;
+let v7TimerMode = "pomodoro";
+let v7CountupSeconds = 0;
+let v7CountupInterval = null;
 let activeRoomCode = null;
 let roomChannel = null;
 let roomHeartbeat = null;
-let roomStartedAt = null;
-let roomBaseSeconds = 0;
 
-function formatMinutes(min){
-  min = Math.max(0, Math.round(min || 0));
+function v7FormatMinutes(min){
+  min = Math.max(0, Math.round(Number(min) || 0));
   const h = Math.floor(min / 60);
   const m = min % 60;
   if(h && m) return `${h}小时${m}分钟`;
@@ -771,88 +769,82 @@ function formatMinutes(min){
   return `${m}分钟`;
 }
 
-function getDateKeyFromDate(d){
-  return d.toISOString().slice(0,10);
+function v7DateKey(date){
+  return date.toISOString().slice(0,10);
 }
 
-function getLogsForRange(daysBack){
+function v7LogsInDays(days){
   const data = getData();
-  const result = [];
+  const logs = [];
   const now = new Date();
-  for(let i=0;i<daysBack;i++){
+  for(let i=0;i<days;i++){
     const d = new Date(now);
     d.setDate(now.getDate() - i);
-    const key = getDateKeyFromDate(d);
-    (data.logs?.[key] || []).forEach(log=>result.push({...log, date:key}));
+    const key = v7DateKey(d);
+    (data?.logs?.[key] || []).forEach(l=>logs.push({...l,date:key}));
   }
-  return result;
+  return logs;
 }
 
-function calcMinutes(logs){
-  return logs.reduce((s,l)=>s + (Number(l.minutes) || 0), 0);
+function v7SumMinutes(logs){
+  return logs.reduce((s,l)=>s + (Number(l.minutes)||0),0);
 }
 
 function renderStats(){
   if(!cloudData) return;
   const data = getData();
-  const today = todayKey();
+  const todayLogs = data.logs?.[todayKey()] || [];
+  const weekLogs = v7LogsInDays(7);
+  const monthLogs = v7LogsInDays(30);
 
-  const todayLogs = data.logs?.[today] || [];
-  const weekLogs = getLogsForRange(7);
-  const monthLogs = getLogsForRange(30);
-
+  const todayMin = v7SumMinutes(todayLogs);
+  const weekMin = v7SumMinutes(weekLogs);
+  const monthMin = v7SumMinutes(monthLogs);
   const doneTasks = (data.tasks || []).filter(t=>t.done).length;
-
-  const todayMin = calcMinutes(todayLogs);
-  const weekMin = calcMinutes(weekLogs);
-  const monthMin = calcMinutes(monthLogs);
 
   const statToday = document.getElementById("statToday");
   const statWeek = document.getElementById("statWeek");
   const statMonth = document.getElementById("statMonth");
   const statDoneTasks = document.getElementById("statDoneTasks");
-  if(statToday) statToday.textContent = formatMinutes(todayMin);
-  if(statWeek) statWeek.textContent = formatMinutes(weekMin);
-  if(statMonth) statMonth.textContent = formatMinutes(monthMin);
-  if(statDoneTasks) statDoneTasks.textContent = `${doneTasks} 个`;
 
-  const todayProjects = todayLogs.filter(l=>l.minutes).map(l=>`${l.text} ${l.minutes}分钟`);
-  const weekDays = {};
-  weekLogs.forEach(l=>{
-    weekDays[l.date] = (weekDays[l.date] || 0) + (Number(l.minutes) || 0);
-  });
-  const bestDay = Object.entries(weekDays).sort((a,b)=>b[1]-a[1])[0];
+  if(statToday) statToday.textContent = v7FormatMinutes(todayMin);
+  if(statWeek) statWeek.textContent = v7FormatMinutes(weekMin);
+  if(statMonth) statMonth.textContent = v7FormatMinutes(monthMin);
+  if(statDoneTasks) statDoneTasks.textContent = `${doneTasks} 个`;
 
   const dailyReport = document.getElementById("dailyReport");
   if(dailyReport){
-    dailyReport.textContent =
-      todayMin > 0
-      ? `今天一共学习了 ${formatMinutes(todayMin)}。\n${todayProjects.length ? "主要记录：\n- " + todayProjects.join("\n- ") : "今天有学习记录，但没有具体项目。"}`
-      : "今天还没有学习记录。可以先用番茄钟或自习室记录一段时间。";
+    if(todayMin){
+      const items = todayLogs.filter(l=>l.minutes).map(l=>`- ${l.text}：${l.minutes}分钟`).join("\n");
+      dailyReport.textContent = `今天一共学习了 ${v7FormatMinutes(todayMin)}。\n${items || "今天有学习记录。"}\n\n今天已经有在往前走了，不用一下子做到完美。`;
+    }else{
+      dailyReport.textContent = "今天还没有学习记录。可以先开一个番茄钟，或者进入自习室学习一会儿。";
+    }
   }
 
   const weeklyReport = document.getElementById("weeklyReport");
   if(weeklyReport){
-    weeklyReport.textContent =
-      weekMin > 0
-      ? `本周累计学习 ${formatMinutes(weekMin)}。\n${bestDay ? `学习最多的一天是 ${bestDay[0]}，共 ${formatMinutes(bestDay[1])}。` : ""}\n继续保持现在的节奏就很好。`
-      : "本周还没有学习记录。开始一次番茄钟后，这里会自动生成报告。";
+    if(weekMin){
+      const dayMap = {};
+      weekLogs.forEach(l=>dayMap[l.date]=(dayMap[l.date]||0)+(Number(l.minutes)||0));
+      const best = Object.entries(dayMap).sort((a,b)=>b[1]-a[1])[0];
+      weeklyReport.textContent = `本周累计学习 ${v7FormatMinutes(weekMin)}。\n${best ? `学习最多的一天是 ${best[0]}，共 ${v7FormatMinutes(best[1])}。` : ""}\n\n继续保持这个节奏就很好。`;
+    }else{
+      weeklyReport.textContent = "本周还没有学习记录。等你开始使用番茄钟或自习室后，这里会自动生成周报。";
+    }
   }
 }
 
 function refreshPomodoroTaskOptions(){
   const select = document.getElementById("pomodoroTaskSelect");
   if(!select || !cloudData) return;
-  const data = getData();
-  const current = select.value;
-  select.innerHTML = `<option value="">不关联待办</option>` + (data.tasks || [])
-    .filter(t=>!t.done)
-    .map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.title)}</option>`)
-    .join("");
-  if(current) select.value = current;
+  const old = select.value;
+  const tasks = (getData().tasks || []).filter(t=>!t.done);
+  select.innerHTML = `<option value="">不关联待办</option>` + tasks.map(t=>`<option value="${escapeHtml(t.id)}">${escapeHtml(t.title)}</option>`).join("");
+  if(old) select.value = old;
 }
 
-function applyTaskToPomodoro(){
+function applyPomodoroTask(){
   const select = document.getElementById("pomodoroTaskSelect");
   const input = document.getElementById("focusProject");
   if(!select || !input || !cloudData) return;
@@ -860,41 +852,38 @@ function applyTaskToPomodoro(){
   if(task) input.value = task.title;
 }
 
-function setTimerMode(mode){
-  timerMode = mode;
-  document.getElementById("modePomodoro")?.classList.toggle("active", mode === "pomodoro");
-  document.getElementById("modeCountup")?.classList.toggle("active", mode === "countup");
-  const status = document.getElementById("timerStatus");
-  if(status) status.textContent = mode === "countup" ? "正向计时准备开始" : "准备开始";
-  resetV6Timer();
-}
-
-function resetV6Timer(){
+function setV7TimerMode(mode){
+  v7TimerMode = mode;
+  document.getElementById("modePomodoro")?.classList.toggle("active", mode==="pomodoro");
+  document.getElementById("modeCountup")?.classList.toggle("active", mode==="countup");
   clearInterval(timer);
-  clearInterval(countupInterval);
+  clearInterval(v7CountupInterval);
   timerRunning = false;
-  if(timerMode === "countup"){
-    countupSeconds = 0;
+
+  if(mode === "countup"){
+    v7CountupSeconds = 0;
     document.getElementById("timerDisplay").textContent = "00:00";
-    document.getElementById("timerRing")?.style.setProperty("--progress", "0deg");
+    document.getElementById("timerStatus").textContent = "正向计时准备开始";
+    document.getElementById("timerRing")?.style.setProperty("--progress","0deg");
   }else{
     timerTotal = Number(document.getElementById("focusMinutes")?.value || 25) * 60;
     timerLeft = timerTotal;
+    document.getElementById("timerStatus").textContent = "准备开始";
     renderTimer();
   }
 }
 
 function finishFocusSession(minutes){
-  const project = document.getElementById("focusProject")?.value.trim() || "未命名专注";
-  const selectedTaskId = document.getElementById("pomodoroTaskSelect")?.value || "";
   const data = getData();
+  const project = document.getElementById("focusProject")?.value.trim() || "未命名专注";
+  const taskId = document.getElementById("pomodoroTaskSelect")?.value || "";
 
   logEvent(`番茄钟：${project}`, minutes, "专注");
 
-  if(selectedTaskId){
-    const task = (data.tasks || []).find(t=>t.id === selectedTaskId);
+  if(taskId){
+    const task = (data.tasks || []).find(t=>t.id === taskId);
     if(task){
-      task.progress = Math.min(100, Number(task.progress || 0) + 25);
+      task.progress = Math.min(100, Number(task.progress || 0) + Math.max(10, Math.round(minutes / 25 * 25)));
       if(task.progress >= 100){
         task.done = true;
         logEvent(`完成任务：${task.title}`, 0, "任务");
@@ -908,25 +897,25 @@ function finishFocusSession(minutes){
   renderStats();
 }
 
-function startV6Timer(){
+function startV7Timer(){
   if(timerRunning) return;
   timerRunning = true;
-  const status = document.getElementById("timerStatus");
 
-  if(timerMode === "countup"){
-    if(status) status.textContent = "正向计时中";
-    countupInterval = setInterval(()=>{
-      countupSeconds++;
-      const m = String(Math.floor(countupSeconds/60)).padStart(2,"0");
-      const s = String(countupSeconds%60).padStart(2,"0");
+  if(v7TimerMode === "countup"){
+    document.getElementById("timerStatus").textContent = "正向计时中";
+    v7CountupInterval = setInterval(()=>{
+      v7CountupSeconds++;
+      const m = String(Math.floor(v7CountupSeconds/60)).padStart(2,"0");
+      const s = String(v7CountupSeconds%60).padStart(2,"0");
       document.getElementById("timerDisplay").textContent = `${m}:${s}`;
-      const progress = Math.min(360, (countupSeconds / (Number(document.getElementById("focusMinutes")?.value || 25)*60)) * 360);
-      document.getElementById("timerRing")?.style.setProperty("--progress", `${progress}deg`);
-    }, 1000);
+      const base = Number(document.getElementById("focusMinutes")?.value || 25) * 60;
+      const deg = Math.min(360, v7CountupSeconds / base * 360);
+      document.getElementById("timerRing")?.style.setProperty("--progress", `${deg}deg`);
+    },1000);
     return;
   }
 
-  if(status) status.textContent = "专注中";
+  document.getElementById("timerStatus").textContent = "专注中";
   timer = setInterval(()=>{
     timerLeft--;
     renderTimer();
@@ -935,7 +924,7 @@ function startV6Timer(){
       timerRunning = false;
       const mins = Number(document.getElementById("focusMinutes")?.value || 25);
       finishFocusSession(mins);
-      if(status) status.textContent = "已完成";
+      document.getElementById("timerStatus").textContent = "已完成";
       timerTotal = Number(document.getElementById("breakMinutes")?.value || 5) * 60;
       timerLeft = timerTotal;
       renderTimer();
@@ -943,41 +932,34 @@ function startV6Timer(){
   },1000);
 }
 
-function pauseV6Timer(){
+function pauseV7Timer(){
   clearInterval(timer);
-  clearInterval(countupInterval);
+  clearInterval(v7CountupInterval);
   timerRunning = false;
-  const status = document.getElementById("timerStatus");
-  if(status) status.textContent = "已暂停";
+  document.getElementById("timerStatus").textContent = "已暂停";
 }
 
-function stopCountupAndSave(){
-  if(timerMode !== "countup") return;
-  const minutes = Math.max(1, Math.round(countupSeconds / 60));
-  finishFocusSession(minutes);
-  resetV6Timer();
-  const status = document.getElementById("timerStatus");
-  if(status) status.textContent = `已保存 ${minutes} 分钟`;
+function resetV7Timer(){
+  if(v7TimerMode === "countup" && v7CountupSeconds > 0){
+    const minutes = Math.max(1, Math.round(v7CountupSeconds / 60));
+    finishFocusSession(minutes);
+    document.getElementById("timerStatus").textContent = `已保存 ${minutes} 分钟`;
+  }
+  setV7TimerMode(v7TimerMode);
 }
 
-function setupV6Pomodoro(){
-  document.getElementById("modePomodoro")?.addEventListener("click",()=>setTimerMode("pomodoro"));
-  document.getElementById("modeCountup")?.addEventListener("click",()=>setTimerMode("countup"));
-  document.getElementById("pomodoroTaskSelect")?.addEventListener("change", applyTaskToPomodoro);
+function setupV7Pomodoro(){
+  document.getElementById("modePomodoro")?.addEventListener("click",()=>setV7TimerMode("pomodoro"));
+  document.getElementById("modeCountup")?.addEventListener("click",()=>setV7TimerMode("countup"));
+  document.getElementById("pomodoroTaskSelect")?.addEventListener("change", applyPomodoroTask);
 
-  const startBtn = document.getElementById("startTimer");
-  const pauseBtn = document.getElementById("pauseTimer");
-  const resetBtn = document.getElementById("resetTimer");
+  const start = document.getElementById("startTimer");
+  const pause = document.getElementById("pauseTimer");
+  const reset = document.getElementById("resetTimer");
 
-  if(startBtn) startBtn.onclick = startV6Timer;
-  if(pauseBtn) pauseBtn.onclick = pauseV6Timer;
-  if(resetBtn) resetBtn.onclick = ()=>{
-    if(timerMode === "countup" && countupSeconds > 0){
-      stopCountupAndSave();
-    }else{
-      resetV6Timer();
-    }
-  };
+  if(start) start.onclick = startV7Timer;
+  if(pause) pause.onclick = pauseV7Timer;
+  if(reset) reset.onclick = resetV7Timer;
 
   refreshPomodoroTaskOptions();
 }
@@ -989,7 +971,6 @@ async function joinRealtimeRoom(){
   const name = document.getElementById("roomName")?.value.trim() || "小水滴自习室";
   const code = document.getElementById("roomCode")?.value.trim() || "0000";
   const profile = data.profile || {};
-
   activeRoomCode = code;
 
   await supabaseClient.from("study_rooms").upsert({
@@ -1010,12 +991,7 @@ async function joinRealtimeRoom(){
     last_seen: new Date().toISOString()
   });
 
-  if(data.room){
-    data.room.name = name;
-    data.room.code = code;
-  }else{
-    data.room = {name, code, what:"", todayMinutes:0};
-  }
+  data.room = {name, code, what:data.room?.what || "", todayMinutes:data.room?.todayMinutes || 0};
   saveData(data);
 
   document.getElementById("roomPanel")?.classList.remove("hidden");
@@ -1088,7 +1064,7 @@ function renderRealtimeRoom(participants){
         <strong>${escapeHtml(p.avatar || "💧")} ${escapeHtml(p.display_name || "朋友")}</strong>
         <p class="hint"><span class="room-status-dot"></span>${p.is_studying ? "学习中" : "在线"}</p>
         <p class="hint">正在学：${escapeHtml(p.study_what || "还没填写")}</p>
-        <p class="hint">今日：${formatMinutes(minutes)}</p>
+        <p class="hint">今日：${v7FormatMinutes(minutes)}</p>
       </div>`;
     }).join("");
   }
@@ -1100,7 +1076,7 @@ function renderRealtimeRoom(participants){
       <div class="item">
         <div class="item-top">
           <span>${i+1}. ${escapeHtml(p.avatar || "💧")} ${escapeHtml(p.display_name || "朋友")}</span>
-          <strong>${formatMinutes(Math.floor(secondsWithLive(p)/60))}</strong>
+          <strong>${v7FormatMinutes(Math.floor(secondsWithLive(p)/60))}</strong>
         </div>
       </div>
     `).join("") || `<p class="hint">暂时还没有人在房间里。</p>`;
@@ -1122,7 +1098,6 @@ async function updateStudyWhatRealtime(){
 
 async function startRealtimeStudy(){
   if(!activeRoomCode || !currentSession?.user) return;
-  roomStartedAt = Date.now();
   const what = document.getElementById("studyWhat")?.value.trim() || "";
   await supabaseClient.from("room_participants")
     .update({
@@ -1152,6 +1127,7 @@ async function stopRealtimeStudy(){
   if(row?.started_at){
     add = Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime())/1000));
   }
+
   const newTotal = Number(row?.total_seconds || 0) + add;
   const minutes = Math.max(1, Math.round(add/60));
 
@@ -1186,25 +1162,32 @@ function setupRealtimeStudyRoom(){
   if(stopBtn) stopBtn.onclick = stopRealtimeStudy;
 }
 
-function setupStatsNav(){
+function setupV7NavHooks(){
   document.querySelectorAll(".nav-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
+      document.querySelector(".nav")?.classList.remove("open");
       if(btn.dataset.page === "stats") renderStats();
       if(btn.dataset.page === "pomodoro") refreshPomodoroTaskOptions();
     });
   });
 }
 
-const oldRenderAll = renderAll;
+const oldRenderAllV7 = renderAll;
 renderAll = function(){
-  oldRenderAll();
+  oldRenderAllV7();
   refreshPomodoroTaskOptions();
   renderStats();
 };
 
-setupV6Pomodoro();
+const oldRenderTodosV7 = renderTodos;
+renderTodos = function(){
+  oldRenderTodosV7();
+  refreshPomodoroTaskOptions();
+};
+
+setupV7Pomodoro();
 setupRealtimeStudyRoom();
-setupStatsNav();
+setupV7NavHooks();
 
 window.addEventListener("beforeunload", async ()=>{
   if(activeRoomCode && currentSession?.user){
@@ -1214,13 +1197,3 @@ window.addEventListener("beforeunload", async ()=>{
       .eq("user_id", currentSession.user.id);
   }
 });
-
-
-/* v6 small hook: keep pomodoro task dropdown synced */
-if(typeof renderTodos === "function"){
-  const originalRenderTodosV6 = renderTodos;
-  renderTodos = function(){
-    originalRenderTodosV6();
-    refreshPomodoroTaskOptions();
-  };
-}
