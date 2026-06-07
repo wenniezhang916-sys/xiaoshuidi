@@ -891,3 +891,24 @@ if(document.readyState === "loading"){
 }else{
   bootAuthSession();
 }
+setTimeout(async () => {
+  const { data } = await supabaseClient.auth.getSession();
+
+  if (data.session && document.getElementById("mainPage")?.classList.contains("hidden")) {
+    currentSession = data.session;
+    currentUser = data.session.user.email;
+
+    try {
+      await loadCloudData(data.session);
+    } catch (e) {
+      console.warn("云端读取慢，先进入主页", e);
+      cloudData = cloudData || defaultData(data.session.user.email);
+    }
+
+    document.getElementById("authPage").classList.add("hidden");
+    document.getElementById("mainPage").classList.remove("hidden");
+
+    applyProfile(getData().profile);
+    renderAll();
+  }
+}, 1200);
