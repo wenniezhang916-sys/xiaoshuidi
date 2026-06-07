@@ -703,7 +703,12 @@ initProfile();
 
 supabaseClient.auth.getSession().then(async ({ data })=>{
   if(data.session){
-    await enterApp(data.session);
+    try{
+      await enterApp(data.session);
+    }catch(err){
+      console.error(err);
+      $("#authMsg").textContent = "自动登录失败，请刷新页面";
+    }
   }else{
     tickClock();
     renderTimer();
@@ -711,7 +716,12 @@ supabaseClient.auth.getSession().then(async ({ data })=>{
 });
 
 supabaseClient.auth.onAuthStateChange(async (event, session)=>{
-  if(event === "SIGNED_IN" && session && !currentSession){
-    await enterApp(session);
+  if(event === "SIGNED_IN" && session){
+    try{
+      await enterApp(session);
+    }catch(err){
+      console.error(err);
+      $("#authMsg").textContent = "登录成功，但读取数据失败";
+    }
   }
 });
