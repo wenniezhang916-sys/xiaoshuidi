@@ -912,3 +912,25 @@ setTimeout(async () => {
     renderAll();
   }
 }, 1200);
+window.addEventListener("load", async () => {
+  setTimeout(async () => {
+    const { data } = await supabaseClient.auth.getSession();
+
+    if (data?.session) {
+      currentSession = data.session;
+      currentUser = data.session.user.email || data.session.user.id;
+
+      try {
+        await loadCloudData(data.session);
+      } catch (e) {
+        cloudData = cloudData || defaultData(currentUser);
+      }
+
+      document.getElementById("authPage").classList.add("hidden");
+      document.getElementById("mainPage").classList.remove("hidden");
+
+      applyProfile(getData().profile);
+      renderAll();
+    }
+  }, 1500);
+});
