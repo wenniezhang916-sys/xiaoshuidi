@@ -6,7 +6,7 @@
   <title>小水滴</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;500;600&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -28,14 +28,14 @@
         <button class="soft-btn social" data-provider="QQ">QQ 登录</button>
       </div>
 
-      <div class="divider"><span>或者使用 ID 登录</span></div>
+      <div class="divider"><span>或者使用邮箱登录</span></div>
 
       <div class="auth-tabs">
         <button class="tab active" data-auth="login">登录</button>
         <button class="tab" data-auth="register">注册</button>
       </div>
 
-      <label>邮箱 / 账号</label>
+      <label>邮箱</label>
       <input id="authId" placeholder="输入邮箱，例如 hello@example.com" autocomplete="username" />
       <label>密码</label>
       <input id="authPwd" type="password" placeholder="输入密码" autocomplete="current-password" />
@@ -52,6 +52,8 @@
 
   <main id="mainPage" class="hidden">
     <header class="topbar card">
+      <button id="menuToggle" class="menu-toggle" type="button" aria-label="打开菜单">☰</button>
+
       <div class="brand">
         <div class="logo small">💧</div>
         <div>
@@ -59,9 +61,6 @@
           <span id="helloText">今天也慢慢来。</span>
         </div>
       </div>
-
-      <button id="menuToggle" class="menu-toggle" type="button" aria-label="打开菜单">☰</button>
-
 
       <nav class="nav">
         <button class="nav-btn active" data-page="clock">时钟</button>
@@ -71,6 +70,7 @@
         <button class="nav-btn" data-page="calendar">打卡日历</button>
         <button class="nav-btn" data-page="stats">学习统计</button>
         <button class="nav-btn" data-page="studyroom">自习室</button>
+        <button class="nav-btn" data-page="history">历史记录</button>
         <button class="nav-btn" data-page="profile">个人主页</button>
       </nav>
 
@@ -123,11 +123,11 @@
       <div class="card pomodoro-card">
         <div class="block-title centered">
           <h2>番茄钟</h2>
-          <p class="hint">专注项目会自动计入打卡日历。</p>
+          <p class="hint">可关联待办/Daily。结束时可以选择记录或不计入统计。</p>
         </div>
 
         <div class="pomodoro-extra">
-          <label>关联待办</label>
+          <label>关联待办 / Daily</label>
           <select id="pomodoroTaskSelect">
             <option value="">不关联待办</option>
           </select>
@@ -158,7 +158,8 @@
         <div class="button-row center">
           <button id="startTimer" class="primary">开始</button>
           <button id="pauseTimer" class="soft-btn">暂停</button>
-          <button id="resetTimer" class="soft-btn">重置</button>
+          <button id="finishRecordTimer" class="primary">结束并记录</button>
+          <button id="finishDiscardTimer" class="soft-btn">结束本次不计入</button>
         </div>
       </div>
     </section>
@@ -167,20 +168,48 @@
       <div class="two-col">
         <div class="card block">
           <h2>Daily 清单</h2>
-          <p class="hint">适合每天坚持的事情，可以记录打卡次数。</p>
+          <p class="hint">每天坚持的事情。可以设置总目标时长/天数，也可以手动拉进度，或者不显示百分比。</p>
           <div class="add-row">
             <input id="dailyInput" placeholder="例如 背单词 / 拉伸 / 阅读">
             <button id="addDaily" class="primary">添加</button>
+          </div>
+          <div class="goal-panel">
+            <label>进度显示方式</label>
+            <select id="dailyGoalType">
+              <option value="none">不显示百分比</option>
+              <option value="time">按总时长计算</option>
+              <option value="days">按总天数计算</option>
+              <option value="manual">手动百分比</option>
+            </select>
+            <div class="goal-row">
+              <input id="dailyGoalHours" type="number" min="0" placeholder="小时">
+              <input id="dailyGoalMinutes" type="number" min="0" placeholder="分钟">
+              <input id="dailyGoalDays" type="number" min="0" placeholder="天数">
+            </div>
           </div>
           <div id="dailyList" class="list"></div>
         </div>
 
         <div class="card block">
           <h2>普通任务</h2>
-          <p class="hint">适合不需要每天重复，但需要完成的任务。</p>
+          <p class="hint">不需要每天重复的任务。完成后可以归档到历史记录。</p>
           <div class="add-row">
             <input id="taskInput" placeholder="例如 写论文 / 交作业 / 预约">
             <button id="addTask" class="primary">添加</button>
+          </div>
+          <div class="goal-panel">
+            <label>进度显示方式</label>
+            <select id="taskGoalType">
+              <option value="manual">手动百分比</option>
+              <option value="time">按总时长计算</option>
+              <option value="days">按总天数计算</option>
+              <option value="none">不显示百分比</option>
+            </select>
+            <div class="goal-row">
+              <input id="taskGoalHours" type="number" min="0" placeholder="小时">
+              <input id="taskGoalMinutes" type="number" min="0" placeholder="分钟">
+              <input id="taskGoalDays" type="number" min="0" placeholder="天数">
+            </div>
           </div>
           <div id="taskList" class="list"></div>
         </div>
@@ -221,39 +250,34 @@
       </div>
     </section>
 
-
     <section id="stats" class="page">
       <div class="card block">
         <h2>学习统计</h2>
-        <p class="hint">番茄钟、自习室和打卡记录会自动汇总在这里。</p>
+        <p class="hint">番茄钟、自习室、Daily 和待办会自动汇总。扇形图按学习项目统计。</p>
 
         <div class="stats-grid">
-          <div class="stat-card">
-            <span>今日学习</span>
-            <strong id="statToday">0 分钟</strong>
-          </div>
-          <div class="stat-card">
-            <span>本周学习</span>
-            <strong id="statWeek">0 分钟</strong>
-          </div>
-          <div class="stat-card">
-            <span>本月学习</span>
-            <strong id="statMonth">0 分钟</strong>
-          </div>
-          <div class="stat-card">
-            <span>完成任务</span>
-            <strong id="statDoneTasks">0 个</strong>
-          </div>
+          <div class="stat-card"><span>今日学习</span><strong id="statToday">0 分钟</strong></div>
+          <div class="stat-card"><span>本周学习</span><strong id="statWeek">0 分钟</strong></div>
+          <div class="stat-card"><span>本月学习</span><strong id="statMonth">0 分钟</strong></div>
+          <div class="stat-card"><span>完成任务</span><strong id="statDoneTasks">0 个</strong></div>
         </div>
 
-        <div class="report-card">
-          <h3>今日学习报告</h3>
-          <div id="dailyReport" class="report-text">今天还没有学习记录。</div>
-        </div>
+        <div class="stats-layout">
+          <div class="report-card">
+            <h3>学习项目占比</h3>
+            <div id="pieChart" class="pie-chart"></div>
+            <div id="pieLegend" class="pie-legend"></div>
+          </div>
 
-        <div class="report-card">
-          <h3>本周学习报告</h3>
-          <div id="weeklyReport" class="report-text">本周还没有学习记录。</div>
+          <div class="report-card">
+            <h3>今日学习报告</h3>
+            <div id="dailyReport" class="report-text">今天还没有学习记录。</div>
+          </div>
+
+          <div class="report-card">
+            <h3>本周学习报告</h3>
+            <div id="weeklyReport" class="report-text">本周还没有学习记录。</div>
+          </div>
         </div>
       </div>
     </section>
@@ -261,11 +285,12 @@
     <section id="studyroom" class="page">
       <div class="card block">
         <h2>自习室</h2>
-        <p class="hint">输入同一个加入码即可进入同一个实时自习室。房间里会显示每个人在学什么、今日学习时长和排行榜。</p>
+        <p class="hint">系统会随机生成不重复加入码。输入同一个加入码即可进入同一个实时自习室。</p>
 
         <div class="add-row wrap">
           <input id="roomName" placeholder="自习室名称">
-          <input id="roomCode" placeholder="加入码，例如 1234">
+          <input id="roomCode" placeholder="加入码；不填则自动生成">
+          <button id="generateRoomCode" class="soft-btn">生成随机码</button>
           <button id="joinRoom" class="primary">加入 / 创建</button>
         </div>
 
@@ -290,6 +315,14 @@
       </div>
     </section>
 
+    <section id="history" class="page">
+      <div class="card block">
+        <h2>历史记录</h2>
+        <p class="hint">完成并归档的 Daily / 普通任务会显示在这里。</p>
+        <div id="archiveList" class="list"></div>
+      </div>
+    </section>
+
     <section id="profile" class="page">
       <div class="card profile-card">
         <h2>个人主页</h2>
@@ -306,7 +339,7 @@
           <option value="Quicksand">Quicksand</option>
           <option value="Nunito">Nunito</option>
           <option value="Playfair Display">Playfair Display</option>
-          <option value="Noto Serif SC">Noto Serif SC</option>
+          <option value="Noto Sans SC">Noto Sans SC</option>
         </select>
 
         <button id="saveProfile" class="primary full">保存个人资料</button>
