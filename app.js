@@ -39,6 +39,89 @@ const PIE_COLORS = ["#c8b7a4","#b9c7b3","#d6b6ad","#b8bfd3","#d7c8a8","#a9c7c3",
 const todayKey = () => new Date().toISOString().slice(0,10);
 const uid = () => Math.random().toString(36).slice(2,10);
 
+// ── 页面持久化 ──────────────────────────────────────────────
+function saveCurrentPage(pageId){
+  try{ localStorage.setItem("xiaoshuidi-page", pageId); }catch(e){}
+}
+function restorePage(){
+  try{
+    const saved = localStorage.getItem("xiaoshuidi-page");
+    if(!saved) return;
+    const btn = document.querySelector(`.nav-btn[data-page="${saved}"]`);
+    const page = document.getElementById(saved);
+    if(btn && page){
+      document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      page.classList.add("active");
+    }
+  }catch(e){}
+}
+
+// ── 计时器持久化 ────────────────────────────────────────────
+function saveTimerState(){
+  try{
+    const state = {
+      timerMode,
+      timerRunning,
+      timerLeft,
+      timerTotal,
+      timerPausedSeconds,
+      timerStartedAt: timerRunning ? timerStartedAt : null,
+      focusProject: document.getElementById("focusProject")?.value || "",
+      focusMinutes: document.getElementById("focusMinutes")?.value || "25",
+      breakMinutes: document.getElementById("breakMinutes")?.value || "5",
+    };
+    localStorage.setItem("xiaoshuidi-timer", JSON.stringify(state));
+  }catch(e){}
+}
+function restoreTimerState(){
+  try{
+    const raw = localStorage.getItem("xiaoshuidi-timer");
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    timerMode = s.timerMode || "pomodoro";
+    timerTotal = Number(s.timerTotal) || 25*60;
+    timerPausedSeconds = Number(s.timerPausedSeconds) || 0;
+
+    // 如果刷新前正在计时，根据经过的时间推算剩余
+    if(s.timerRunning && s.timerStartedAt){
+      const elapsed = Math.floor((Date.now() - s.timerStartedAt) / 1000);
+      if(s.timerMode === "countup"){
+        timerPausedSeconds = s.timerPausedSeconds + elapsed;
+        timerLeft = timerTotal;
+      }else{
+        timerLeft = Math.max(0, s.timerLeft - elapsed);
+      }
+    }else{
+      timerLeft = Number(s.timerLeft) || timerTotal;
+    }
+
+    const fpEl = document.getElementById("focusProject");
+    const fmEl = document.getElementById("focusMinutes");
+    const bmEl = document.getElementById("breakMinutes");
+    if(fpEl && s.focusProject) fpEl.value = s.focusProject;
+    if(fmEl && s.focusMinutes) fmEl.value = s.focusMinutes;
+    if(bmEl && s.breakMinutes) bmEl.value = s.breakMinutes;
+
+    // 模式按钮状态
+    const mp = document.getElementById("modePomodoro");
+    const mc = document.getElementById("modeCountup");
+    if(mp) mp.classList.toggle("active", timerMode === "pomodoro");
+    if(mc) mc.classList.toggle("active", timerMode === "countup");
+
+    // 如果刷新前正在跑，恢复计时
+    if(s.timerRunning){
+      timerRunning = false; // startTimerSession 会置为 true
+      startTimerSession();
+      const statusEl = document.getElementById("timerStatus");
+      if(statusEl) statusEl.textContent = timerMode === "countup" ? "正向计时中（已恢复）" : "专注中（已恢复）";
+    }else{
+      renderTimer();
+    }
+  }catch(e){ console.warn("计时器恢复失败", e); }
+}
+
 function escapeHtml(str){
   return String(str ?? "").replace(/[&<>"']/g, m=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
@@ -315,6 +398,7 @@ function initNav(){
       $$(".page").forEach(p=>p.classList.remove("active"));
       btn.classList.add("active");
       $("#" + btn.dataset.page).classList.add("active");
+      saveCurrentPage(btn.dataset.page);
       $(".nav")?.classList.remove("open");
       if(btn.dataset.page === "calendar") renderCalendar();
       if(btn.dataset.page === "stats") renderStats();
@@ -544,12 +628,14 @@ function startTimerSession(){
       $("#timerDisplay").textContent=`${m}:${s}`;
       const base=Number($("#focusMinutes").value||25)*60;
       $("#timerRing").style.setProperty("--progress",`${Math.min(360,sec/base*360)}deg`);
+      saveTimerState();
     },1000);
   }else{
     $("#timerStatus").textContent="专注中";
     timer=setInterval(()=>{
       timerLeft--;
       renderTimer();
+      saveTimerState();
       if(timerLeft<=0) finishTimer(true);
     },1000);
   }
@@ -561,6 +647,7 @@ function pauseTimerSession(){
   clearInterval(timer);
   timerRunning=false;
   $("#timerStatus").textContent="已暂停";
+  saveTimerState();
 }
 
 function currentSessionMinutes(){
@@ -579,6 +666,7 @@ function finishTimer(record){
   const minutes=currentSessionMinutes();
   timerRunning=false;
   timerPausedSeconds=0;
+  try{ localStorage.removeItem("xiaoshuidi-timer"); }catch(e){}
   if(record) recordFocus(minutes);
   if(timerMode==="countup"){
     $("#timerDisplay").textContent="00:00";
@@ -742,7 +830,7 @@ function makeEmbed(url){ const yt=getYoutubeId(url); if(yt)return `<iframe src="
 function initProfile(){ const icons=["💧","🌷","☁️","🌙","⭐","📚","🎧","🧸","🐰","🦢","🕯️","🍓","🫧","🍵","🪻","🦋"]; $("#iconPicker").innerHTML=icons.map(i=>`<button class="icon-option" data-icon="${i}">${i}</button>`).join(""); $$(".icon-option").forEach(btn=>{btn.onclick=()=>{const data=getData();data.profile.avatar=btn.dataset.icon;saveData(data);renderProfile();};}); $("#saveProfile").onclick=()=>{const data=getData();data.profile.name=$("#profileName").value.trim()||"朋友";data.profile.numberFont=$("#numberFont").value;saveData(data);applyProfile(data.profile);renderProfile();}; }
 function renderProfile(){ if(!cloudData)return; const data=getData(); $("#avatarPreview").textContent=data.profile.avatar||"💧"; $("#profileName").value=data.profile.name||""; $("#numberFont").value=data.profile.numberFont||"Quicksand"; $$(".icon-option").forEach(btn=>btn.classList.toggle("active",btn.dataset.icon===data.profile.avatar)); }
 
-function renderAll(){ tickClock(); renderTimer(); renderTodos(); renderCountdowns(); renderCalendar(); renderStats(); renderHistory(); renderProfile(); refreshPomodoroTaskOptions(); }
+function renderAll(){ tickClock(); renderTimer(); renderTodos(); renderCountdowns(); renderCalendar(); renderStats(); renderHistory(); renderProfile(); refreshPomodoroTaskOptions(); restorePage(); restoreTimerState(); }
 
 initAuth(); initNav(); initAudio(); initTodos(); initCountdowns(); initCalendar(); initStudyRoom(); initProfile();
 
@@ -891,46 +979,3 @@ if(document.readyState === "loading"){
 }else{
   bootAuthSession();
 }
-setTimeout(async () => {
-  const { data } = await supabaseClient.auth.getSession();
-
-  if (data.session && document.getElementById("mainPage")?.classList.contains("hidden")) {
-    currentSession = data.session;
-    currentUser = data.session.user.email;
-
-    try {
-      await loadCloudData(data.session);
-    } catch (e) {
-      console.warn("云端读取慢，先进入主页", e);
-      cloudData = cloudData || defaultData(data.session.user.email);
-    }
-
-    document.getElementById("authPage").classList.add("hidden");
-    document.getElementById("mainPage").classList.remove("hidden");
-
-    applyProfile(getData().profile);
-    renderAll();
-  }
-}, 1200);
-window.addEventListener("load", async () => {
-  setTimeout(async () => {
-    const { data } = await supabaseClient.auth.getSession();
-
-    if (data?.session) {
-      currentSession = data.session;
-      currentUser = data.session.user.email || data.session.user.id;
-
-      try {
-        await loadCloudData(data.session);
-      } catch (e) {
-        cloudData = cloudData || defaultData(currentUser);
-      }
-
-      document.getElementById("authPage").classList.add("hidden");
-      document.getElementById("mainPage").classList.remove("hidden");
-
-      applyProfile(getData().profile);
-      renderAll();
-    }
-  }, 1500);
-});
