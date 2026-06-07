@@ -1,5 +1,5 @@
-const SUPABASE_URL = "PASTE_YOUR_SUPABASE_URL_HERE";
-const SUPABASE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE";
+const SUPABASE_URL = "https://huyifomichrbcvxxwmtm.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_EGa6Oyou0mlQctQnUgy05w_5I78yo2d";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
