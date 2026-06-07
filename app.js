@@ -1,6 +1,7 @@
+
 const SUPABASE_URL = "https://huyifomichrbcvxxwmtm.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1eWlmb21pY2hyYmN2eHh3bXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3OTUxMjMsImV4cCI6MjA5NjM3MTEyM30.TZRAA5I-0zj3-N_Thof5sGCBCzGs1IkqjXtxzVinyHI";
-
+ 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
@@ -9,16 +10,16 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, 
     storage: window.localStorage
   }
 });
-
+ 
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-
+ 
 let authMode = "login";
 let currentUser = null;
 let currentSession = null;
 let cloudData = null;
 let manualLogout = false;
-
+ 
 let timer = null;
 let timerMode = "pomodoro";
 let timerRunning = false;
@@ -26,19 +27,19 @@ let timerStartedAt = null;
 let timerPausedSeconds = 0;
 let timerLeft = 25 * 60;
 let timerTotal = 25 * 60;
-
+ 
 let audioCtx = null;
 let currentSoundNodes = [];
 let saveTimer = null;
 let activeRoomCode = null;
 let roomChannel = null;
 let roomHeartbeat = null;
-
+ 
 const PIE_COLORS = ["#c8b7a4","#b9c7b3","#d6b6ad","#b8bfd3","#d7c8a8","#a9c7c3","#c5adc9","#d3bca2"];
-
+ 
 const todayKey = () => new Date().toISOString().slice(0,10);
 const uid = () => Math.random().toString(36).slice(2,10);
-
+ 
 // ── 页面持久化 ──────────────────────────────────────────────
 function saveCurrentPage(pageId){
   try{ localStorage.setItem("xiaoshuidi-page", pageId); }catch(e){}
@@ -57,7 +58,7 @@ function restorePage(){
     }
   }catch(e){}
 }
-
+ 
 // ── 计时器持久化 ────────────────────────────────────────────
 function saveTimerState(){
   try{
@@ -83,7 +84,7 @@ function restoreTimerState(){
     timerMode = s.timerMode || "pomodoro";
     timerTotal = Number(s.timerTotal) || 25*60;
     timerPausedSeconds = Number(s.timerPausedSeconds) || 0;
-
+ 
     // 如果刷新前正在计时，根据经过的时间推算剩余
     if(s.timerRunning && s.timerStartedAt){
       const elapsed = Math.floor((Date.now() - s.timerStartedAt) / 1000);
@@ -96,20 +97,20 @@ function restoreTimerState(){
     }else{
       timerLeft = Number(s.timerLeft) || timerTotal;
     }
-
+ 
     const fpEl = document.getElementById("focusProject");
     const fmEl = document.getElementById("focusMinutes");
     const bmEl = document.getElementById("breakMinutes");
     if(fpEl && s.focusProject) fpEl.value = s.focusProject;
     if(fmEl && s.focusMinutes) fmEl.value = s.focusMinutes;
     if(bmEl && s.breakMinutes) bmEl.value = s.breakMinutes;
-
+ 
     // 模式按钮状态
     const mp = document.getElementById("modePomodoro");
     const mc = document.getElementById("modeCountup");
     if(mp) mp.classList.toggle("active", timerMode === "pomodoro");
     if(mc) mc.classList.toggle("active", timerMode === "countup");
-
+ 
     // 如果刷新前正在跑，恢复计时
     if(s.timerRunning){
       timerRunning = false; // startTimerSession 会置为 true
@@ -121,13 +122,13 @@ function restoreTimerState(){
     }
   }catch(e){ console.warn("计时器恢复失败", e); }
 }
-
+ 
 function escapeHtml(str){
   return String(str ?? "").replace(/[&<>"']/g, m=>({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
   }[m]));
 }
-
+ 
 function defaultData(email){
   const name = email?.split("@")[0] || "朋友";
   return {
@@ -141,7 +142,7 @@ function defaultData(email){
     room:null
   };
 }
-
+ 
 function normalizeItem(item, type){
   return {
     id:item.id || uid(),
@@ -160,7 +161,7 @@ function normalizeItem(item, type){
     progress:Number(item.progress || 0)
   };
 }
-
+ 
 function normalizeData(raw, email){
   const base = defaultData(email);
   const data = {...base, ...(raw || {})};
@@ -173,8 +174,8 @@ function normalizeData(raw, email){
   data.notes = data.notes || {};
   return data;
 }
-
-
+ 
+ 
 function getLocalBackup(session){
   try{
     const key = session?.user?.id ? `xiaoshuidi-backup-${session.user.id}` : "xiaoshuidi-backup";
@@ -183,16 +184,16 @@ function getLocalBackup(session){
   }catch(e){}
   return null;
 }
-
+ 
 function saveLocalBackup(session, data){
   try{
     const key = session?.user?.id ? `xiaoshuidi-backup-${session.user.id}` : "xiaoshuidi-backup";
     localStorage.setItem(key, JSON.stringify(data));
   }catch(e){}
 }
-
+ 
 function getData(){ return cloudData; }
-
+ 
 function saveData(data){
   cloudData = data;
   try{
@@ -202,7 +203,7 @@ function saveData(data){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveCloudData, 300);
 }
-
+ 
 async function saveCloudData(){
   if(!currentSession?.user || !cloudData) return;
   const { error } = await supabaseClient
@@ -214,7 +215,7 @@ async function saveCloudData(){
     });
   if(error) console.error("保存失败：", error);
 }
-
+ 
 async function loadCloudData(session){
   try{
     const { data, error } = await supabaseClient
@@ -222,20 +223,20 @@ async function loadCloudData(session){
       .select("data")
       .eq("user_id", session.user.id)
       .maybeSingle();
-
+ 
     if(error) throw error;
-
+ 
     if(data?.data){
       cloudData = normalizeData(data.data, session.user.email);
       saveLocalBackup(session, cloudData);
     }else{
       const backup = getLocalBackup(session);
       cloudData = backup || defaultData(session.user.email);
-
+ 
       const { error: insertError } = await supabaseClient
         .from("app_data")
         .upsert({ user_id: session.user.id, data: cloudData, updated_at: new Date().toISOString() });
-
+ 
       if(insertError) console.warn("云端初始化失败，先用本地数据进入：", insertError);
       saveLocalBackup(session, cloudData);
     }
@@ -245,7 +246,7 @@ async function loadCloudData(session){
     saveLocalBackup(session, cloudData);
   }
 }
-
+ 
 function formatMinutes(min){
   min = Math.max(0, Math.round(Number(min)||0));
   const h = Math.floor(min/60), m = min%60;
@@ -253,7 +254,7 @@ function formatMinutes(min){
   if(h) return `${h}小时`;
   return `${m}分钟`;
 }
-
+ 
 function goalPercent(item){
   if(item.goalType === "none") return null;
   if(item.goalType === "manual") return Math.min(100, Math.max(0, Number(item.progress || 0)));
@@ -267,7 +268,7 @@ function goalPercent(item){
   }
   return 0;
 }
-
+ 
 function itemMeta(item){
   const parts = [];
   if(item.goalType === "time") parts.push(`累计 ${formatMinutes(item.accumulatedMinutes)} / 目标 ${formatMinutes(item.goalMinutes)}`);
@@ -277,7 +278,7 @@ function itemMeta(item){
   if(item.count) parts.push(`打卡 ${item.count} 次`);
   return parts.join(" · ");
 }
-
+ 
 function logEvent(text, minutes=0, type="记录", extra={}){
   const data = getData();
   const day = todayKey();
@@ -295,7 +296,7 @@ function logEvent(text, minutes=0, type="记录", extra={}){
   renderCalendar();
   renderStats();
 }
-
+ 
 function setAuthLoading(isLoading, text="正在处理…"){
   const btn = $("#authBtn");
   if(btn){
@@ -304,18 +305,18 @@ function setAuthLoading(isLoading, text="正在处理…"){
   }
   if(isLoading) $("#authMsg").textContent = text;
 }
-
+ 
 function showAuthError(message){
   setAuthLoading(false);
   $("#authMsg").textContent = message || "登录失败，请刷新后重试。";
 }
-
+ 
 function withTimeout(promise, ms=15000, label="请求超时，请刷新后重试。"){
   let timeout;
   const timer = new Promise((_, reject)=>timeout=setTimeout(()=>reject(new Error(label)), ms));
   return Promise.race([promise, timer]).finally(()=>clearTimeout(timeout));
 }
-
+ 
 function initAuth(){
   $$(".tab").forEach(btn=>{
     btn.onclick=()=>{
@@ -326,7 +327,7 @@ function initAuth(){
       $("#authMsg").textContent = "";
     };
   });
-
+ 
   $$(".social").forEach(btn=>{
     btn.onclick=async()=>{
       const provider = btn.dataset.provider;
@@ -341,7 +342,7 @@ function initAuth(){
       if(error) showAuthError(error.message);
     };
   });
-
+ 
   $("#authBtn").onclick=async()=>{
     const email = $("#authId").value.trim();
     const password = $("#authPwd").value.trim();
@@ -370,7 +371,7 @@ function initAuth(){
     }
   };
 }
-
+ 
 async function enterApp(session){
   if(!session?.user) return showAuthError("登录状态无效，请重新登录。");
   currentSession = session;
@@ -383,14 +384,14 @@ async function enterApp(session){
   renderAll();
   setAuthLoading(false);
 }
-
+ 
 function applyProfile(profile){
   document.body.classList.toggle("dark", profile.theme === "dark");
   document.documentElement.style.setProperty("--num", `"${profile.numberFont || "Quicksand"}", sans-serif`);
   $("#themeToggle").textContent = profile.theme === "dark" ? "白天" : "夜间";
   $("#helloText").textContent = `${profile.name || "朋友"}，今天也慢慢来。`;
 }
-
+ 
 function initNav(){
   $$(".nav-btn").forEach(btn=>{
     btn.onclick=()=>{
@@ -406,16 +407,16 @@ function initNav(){
       if(btn.dataset.page === "history") renderHistory();
     };
   });
-
+ 
   $("#menuToggle").onclick=()=>$(".nav")?.classList.toggle("open");
-
+ 
   $("#themeToggle").onclick=()=>{
     const data = getData();
     data.profile.theme = data.profile.theme === "dark" ? "light" : "dark";
     saveData(data);
     applyProfile(data.profile);
   };
-
+ 
   $("#logoutBtn").onclick=async()=>{
     manualLogout = true;
     localStorage.setItem("xiaoshuidi-manual-logout", "1");
@@ -425,7 +426,7 @@ function initNav(){
     location.reload();
   };
 }
-
+ 
 function tickClock(){
   const now = new Date();
   $("#clockTime").textContent = now.toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
@@ -434,7 +435,7 @@ function tickClock(){
   $("#warmText").textContent = lines[now.getDate() % lines.length];
 }
 setInterval(tickClock, 1000);
-
+ 
 function getGoal(prefix){
   const type = $(`#${prefix}GoalType`).value;
   const h = Number($(`#${prefix}GoalHours`).value || 0);
@@ -442,7 +443,7 @@ function getGoal(prefix){
   const d = Number($(`#${prefix}GoalDays`).value || 0);
   return { goalType:type, goalMinutes:h*60+m, goalDays:d };
 }
-
+ 
 function initTodos(){
   $("#addDaily").onclick=()=>{
     const title = $("#dailyInput").value.trim();
@@ -452,7 +453,7 @@ function initTodos(){
     $("#dailyInput").value="";
     saveData(data); renderTodos(); refreshPomodoroTaskOptions();
   };
-
+ 
   $("#addTask").onclick=()=>{
     const title = $("#taskInput").value.trim();
     if(!title) return;
@@ -462,7 +463,7 @@ function initTodos(){
     saveData(data); renderTodos(); refreshPomodoroTaskOptions();
   };
 }
-
+ 
 function progressHtml(item){
   const p = goalPercent(item);
   if(p === null) return "";
@@ -473,7 +474,7 @@ function progressHtml(item){
   }
   return bar;
 }
-
+ 
 function itemButtons(item){
   const doneLabel = item.done ? "已完成" : "完成";
   return `
@@ -482,7 +483,7 @@ function itemButtons(item){
     <button class="mini soft-btn" onclick="deleteItem('${item.type}','${item.id}')">删除</button>
   `;
 }
-
+ 
 function renderTodos(){
   const data = getData();
   $("#dailyList").innerHTML = (data.daily||[]).map(d=>`
@@ -498,7 +499,7 @@ function renderTodos(){
       ${progressHtml(d)}
     </div>
   `).join("") || `<p class="hint">还没有 Daily。</p>`;
-
+ 
   $("#taskList").innerHTML = (data.tasks||[]).map(t=>`
     <div class="item">
       <div class="item-top">
@@ -511,7 +512,7 @@ function renderTodos(){
   `).join("") || `<p class="hint">还没有普通任务。</p>`;
   refreshPomodoroTaskOptions();
 }
-
+ 
 window.checkDaily = id=>{
   const data=getData();
   const d=data.daily.find(x=>x.id===id);
@@ -522,7 +523,7 @@ window.checkDaily = id=>{
   logEvent(`Daily 打卡：${d.title}`,0,"Daily",{itemId:d.id,itemTitle:d.title,itemType:"daily"});
   saveData(data); renderTodos(); renderStats();
 };
-
+ 
 window.setItemManualProgress = (type,id,val)=>{
   const data=getData();
   const list= type==="daily" ? data.daily : data.tasks;
@@ -532,7 +533,7 @@ window.setItemManualProgress = (type,id,val)=>{
   if(item.progress>=100) item.done=true;
   saveData(data); renderTodos(); renderStats();
 };
-
+ 
 window.completeItem = (type,id)=>{
   const data=getData();
   const list= type==="daily" ? data.daily : data.tasks;
@@ -542,7 +543,7 @@ window.completeItem = (type,id)=>{
   if(item.goalType==="manual") item.progress=100;
   saveData(data); renderTodos(); renderStats();
 };
-
+ 
 window.archiveItem = (type,id)=>{
   const data=getData();
   const list= type==="daily" ? data.daily : data.tasks;
@@ -554,14 +555,14 @@ window.archiveItem = (type,id)=>{
   data.archived.push(item);
   saveData(data); renderTodos(); renderHistory(); refreshPomodoroTaskOptions();
 };
-
+ 
 window.deleteItem = (type,id)=>{
   const data=getData();
   if(type==="daily") data.daily=data.daily.filter(x=>x.id!==id);
   else data.tasks=data.tasks.filter(x=>x.id!==id);
   saveData(data); renderTodos(); refreshPomodoroTaskOptions();
 };
-
+ 
 function refreshPomodoroTaskOptions(){
   const select=$("#pomodoroTaskSelect");
   if(!select || !cloudData) return;
@@ -577,7 +578,7 @@ function refreshPomodoroTaskOptions(){
   }).join("");
   if(old) select.value=old;
 }
-
+ 
 function getSelectedLinkedItem(){
   const val=$("#pomodoroTaskSelect")?.value;
   if(!val) return null;
@@ -587,12 +588,12 @@ function getSelectedLinkedItem(){
   const item=list.find(x=>x.id===id);
   return item ? {type,id,item} : null;
 }
-
+ 
 $("#pomodoroTaskSelect")?.addEventListener("change",()=>{
   const linked=getSelectedLinkedItem();
   if(linked) $("#focusProject").value=linked.item.title;
 });
-
+ 
 function setTimerMode(mode){
   timerMode=mode;
   $("#modePomodoro").classList.toggle("active",mode==="pomodoro");
@@ -611,10 +612,10 @@ function setTimerMode(mode){
     $("#timerStatus").textContent="准备开始";
   }
 }
-
+ 
 $("#modePomodoro")?.addEventListener("click",()=>setTimerMode("pomodoro"));
 $("#modeCountup")?.addEventListener("click",()=>setTimerMode("countup"));
-
+ 
 function startTimerSession(){
   if(timerRunning) return;
   timerRunning=true;
@@ -640,7 +641,7 @@ function startTimerSession(){
     },1000);
   }
 }
-
+ 
 function pauseTimerSession(){
   if(!timerRunning) return;
   if(timerMode==="countup") timerPausedSeconds += Math.floor((Date.now()-timerStartedAt)/1000);
@@ -649,7 +650,7 @@ function pauseTimerSession(){
   $("#timerStatus").textContent="已暂停";
   saveTimerState();
 }
-
+ 
 function currentSessionMinutes(){
   if(timerMode==="countup"){
     const sec = timerPausedSeconds + (timerRunning ? Math.floor((Date.now()-timerStartedAt)/1000) : 0);
@@ -659,7 +660,7 @@ function currentSessionMinutes(){
   const used = Math.max(0, Math.round((timerTotal - timerLeft)/60));
   return Math.max(1, used || total);
 }
-
+ 
 function finishTimer(record){
   clearInterval(timer);
   if(!timerRunning && !record) return;
@@ -678,14 +679,14 @@ function finishTimer(record){
   }
   $("#timerStatus").textContent = record ? `已记录 ${minutes} 分钟` : "本次未计入";
 }
-
+ 
 function recordFocus(minutes){
   const data=getData();
   const linked=getSelectedLinkedItem();
   const project=$("#focusProject").value.trim() || linked?.item?.title || "未命名专注";
   const extra = linked ? {itemId:linked.id,itemTitle:linked.item.title,itemType:linked.type} : {itemTitle:project,itemType:"custom"};
   logEvent(`专注：${project}`, minutes, "专注", extra);
-
+ 
   if(linked){
     linked.item.accumulatedMinutes = Number(linked.item.accumulatedMinutes||0) + minutes;
     if(linked.item.goalType==="time" && goalPercent(linked.item)>=100) linked.item.done=true;
@@ -693,12 +694,12 @@ function recordFocus(minutes){
   }
   renderTodos(); renderStats(); refreshPomodoroTaskOptions();
 }
-
+ 
 $("#startTimer").onclick=startTimerSession;
 $("#pauseTimer").onclick=pauseTimerSession;
 $("#finishRecordTimer").onclick=()=>finishTimer(true);
 $("#finishDiscardTimer").onclick=()=>finishTimer(false);
-
+ 
 function renderTimer(){
   const m=String(Math.floor(timerLeft/60)).padStart(2,"0");
   const s=String(timerLeft%60).padStart(2,"0");
@@ -706,14 +707,14 @@ function renderTimer(){
   const done=timerTotal ? (1-timerLeft/timerTotal) : 0;
   $("#timerRing").style.setProperty("--progress",`${Math.max(0,Math.min(1,done))*360}deg`);
 }
-
+ 
 function logsInDays(days){
   const data=getData(), res=[], now=new Date();
   for(let i=0;i<days;i++){ const d=new Date(now); d.setDate(now.getDate()-i); const key=d.toISOString().slice(0,10); (data.logs[key]||[]).forEach(l=>res.push({...l,date:key})); }
   return res;
 }
 function sumMinutes(logs){ return logs.reduce((s,l)=>s+(Number(l.minutes)||0),0); }
-
+ 
 function renderStats(){
   if(!cloudData) return;
   const data=getData();
@@ -722,16 +723,16 @@ function renderStats(){
   $("#statWeek").textContent=formatMinutes(sumMinutes(weekLogs));
   $("#statMonth").textContent=formatMinutes(sumMinutes(monthLogs));
   $("#statDoneTasks").textContent=`${[...data.daily,...data.tasks].filter(i=>i.done).length} 个`;
-
+ 
   const map={};
   monthLogs.filter(l=>l.minutes).forEach(l=>{ const k=l.itemTitle||l.text||"其他"; map[k]=(map[k]||0)+Number(l.minutes); });
   renderPie(map);
-
+ 
   $("#dailyReport").textContent = todayLogs.length ? `今天学习了 ${formatMinutes(sumMinutes(todayLogs))}。\n` + todayLogs.map(l=>`- ${l.text}${l.minutes?`：${l.minutes}分钟`:""}`).join("\n") : "今天还没有学习记录。";
   const best = Object.entries(weekLogs.reduce((o,l)=>{o[l.date]=(o[l.date]||0)+(l.minutes||0);return o;},{})).sort((a,b)=>b[1]-a[1])[0];
   $("#weeklyReport").textContent = weekLogs.length ? `本周累计 ${formatMinutes(sumMinutes(weekLogs))}。${best?`\n学习最多：${best[0]}，${formatMinutes(best[1])}。`:""}` : "本周还没有学习记录。";
 }
-
+ 
 function renderPie(map){
   const entries=Object.entries(map).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const pie=$("#pieChart"), legend=$("#pieLegend");
@@ -742,7 +743,7 @@ function renderPie(map){
   pie.style.background=`conic-gradient(${parts.join(",")})`;
   legend.innerHTML=entries.map(([name,val],i)=>`<div class="legend-row"><span class="legend-left"><span class="legend-dot" style="background:${PIE_COLORS[i]}"></span>${escapeHtml(name)}</span><span>${formatMinutes(val)}</span></div>`).join("");
 }
-
+ 
 function renderHistory(){
   const data=getData();
   $("#archiveList").innerHTML=(data.archived||[]).slice().reverse().map(i=>`
@@ -752,7 +753,7 @@ function renderHistory(){
     </div>
   `).join("") || `<p class="hint">还没有归档记录。</p>`;
 }
-
+ 
 function initCountdowns(){
   $("#addCountdown").onclick=()=>{
     const title=$("#countTitle").value.trim(), date=$("#countDate").value, folder=$("#countFolder").value;
@@ -768,7 +769,7 @@ function renderCountdowns(){
   $("#countdownList").innerHTML=(data.countdowns||[]).map(c=>{ const diff=Math.ceil((new Date(c.date)-new Date(todayKey()))/86400000); return `<div class="count-card"><span class="folder-tag">${escapeHtml(c.folder)}</span><h3>${escapeHtml(c.title)}</h3><div class="days">${diff}</div><p class="hint">${diff>=0?`还有 ${diff} 天`:`已经过去 ${Math.abs(diff)} 天`} · ${c.date}</p><button class="mini soft-btn" onclick="deleteCountdown('${c.id}')">删除</button></div>`; }).join("") || `<p class="hint">还没有倒数日。</p>`;
 }
 window.deleteCountdown=id=>{ const data=getData(); data.countdowns=data.countdowns.filter(x=>x.id!==id); saveData(data); renderCountdowns(); };
-
+ 
 function initCalendar(){
   $("#saveNote").onclick=()=>{ const data=getData(); data.notes[todayKey()]=$("#dailyNote").value.trim(); saveData(data); renderCalendar(); };
 }
@@ -779,14 +780,14 @@ function renderCalendar(){
   for(let i=1;i<=last.getDate();i++){ const key=new Date(y,m,i).toISOString().slice(0,10); const logs=data.logs[key]||[]; const minutes=sumMinutes(logs); html+=`<div class="day-cell"><strong>${i}</strong><div class="hint">${minutes?formatMinutes(minutes):""}</div>${logs.slice(-4).map(l=>`<div class="day-event">• ${escapeHtml(l.text)} ${l.minutes?`(${l.minutes}m)`:""}</div>`).join("")}${data.notes[key]?`<div class="day-event">📝 ${escapeHtml(data.notes[key]).slice(0,28)}</div>`:""}</div>`; }
   $("#calendarGrid").innerHTML=html; $("#dailyNote").value=data.notes[todayKey()]||"";
 }
-
+ 
 async function generateUniqueRoomCode(){
   const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   for(let attempt=0;attempt<20;attempt++){ let code=""; for(let i=0;i<6;i++) code+=chars[Math.floor(Math.random()*chars.length)]; const {data}=await supabaseClient.from("study_rooms").select("room_code").eq("room_code",code).maybeSingle(); if(!data) return code; }
   return String(Date.now()).slice(-6);
 }
 $("#generateRoomCode")?.addEventListener("click",async()=>{ $("#roomCode").value=await generateUniqueRoomCode(); });
-
+ 
 async function joinRealtimeRoom(){
   if(!currentSession?.user) return;
   const data=getData();
@@ -810,9 +811,9 @@ function renderRealtimeRoom(participants){ const now=Date.now(); const online=pa
 async function updateStudyWhatRealtime(){ if(!activeRoomCode||!currentSession?.user)return; const what=$("#studyWhat").value.trim(); await supabaseClient.from("room_participants").update({study_what:what,last_seen:new Date().toISOString()}).eq("room_code",activeRoomCode).eq("user_id",currentSession.user.id); }
 async function startRealtimeStudy(){ if(!activeRoomCode||!currentSession?.user)return; const what=$("#studyWhat").value.trim()||""; await supabaseClient.from("room_participants").update({is_studying:true,study_what:what,started_at:new Date().toISOString(),last_seen:new Date().toISOString()}).eq("room_code",activeRoomCode).eq("user_id",currentSession.user.id); $("#startStudy").textContent="学习中…"; await loadRoomParticipants(); }
 async function stopRealtimeStudy(){ if(!activeRoomCode||!currentSession?.user)return; const {data:rows}=await supabaseClient.from("room_participants").select("started_at,total_seconds,study_what").eq("room_code",activeRoomCode).eq("user_id",currentSession.user.id).limit(1); const row=rows?.[0]; let add=0; if(row?.started_at) add=Math.max(0,Math.floor((Date.now()-new Date(row.started_at).getTime())/1000)); const newTotal=Number(row?.total_seconds||0)+add; const minutes=Math.max(1,Math.round(add/60)); await supabaseClient.from("room_participants").update({is_studying:false,started_at:null,total_seconds:newTotal,last_seen:new Date().toISOString()}).eq("room_code",activeRoomCode).eq("user_id",currentSession.user.id); if(add>0) logEvent(`自习室：${row?.study_what||"学习"}`,minutes,"自习室",{itemTitle:row?.study_what||"自习室",itemType:"room"}); $("#startStudy").textContent="开始学习"; await loadRoomParticipants(); renderStats(); }
-
+ 
 function initStudyRoom(){ $("#joinRoom").onclick=joinRealtimeRoom; $("#updateStudyWhat").onclick=updateStudyWhatRealtime; $("#startStudy").onclick=startRealtimeStudy; $("#stopStudy").onclick=stopRealtimeStudy; }
-
+ 
 function initAudio(){
   $$(".sound-btn").forEach(btn=>{ btn.onclick=()=>{ const type=btn.dataset.sound; stopSound(); $$(".sound-btn").forEach(b=>b.classList.remove("active")); if(type!=="none"){ startSound(type); btn.classList.add("active"); } }; });
   $("#soundVolume").oninput=()=>currentSoundNodes.forEach(n=>{if(n&&n.gain)n.gain.value=Number($("#soundVolume").value)/1200;});
@@ -826,18 +827,18 @@ function softTone(freq,duration=.08,volume=.004){ const osc=audioCtx.createOscil
 function startSound(type){ ensureAudio(); const gain=audioCtx.createGain(); gain.gain.value=Number($("#soundVolume").value||24)/1200; const filter=audioCtx.createBiquadFilter(); filter.type="lowpass"; filter.frequency.value=type==="rain"?1500:type==="forest"?850:type==="cafe"?690:type==="library"?520:420; filter.Q.value=.28; const src=makeNoiseSource(type==="brown"?"brown":"pink"); src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); src.start(); currentSoundNodes.push(src,filter,gain); }
 function getYoutubeId(raw){ try{ const u=new URL(raw); if(u.hostname.includes("youtu.be"))return u.pathname.replace("/","").split("?")[0]; if(u.searchParams.get("v"))return u.searchParams.get("v"); const embed=u.pathname.match(/\/embed\/([\w-]+)/); if(embed)return embed[1]; }catch(e){} const m=raw.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{8,})/); return m?m[1]:null; }
 function makeEmbed(url){ const yt=getYoutubeId(url); if(yt)return `<iframe src="https://www.youtube.com/embed/${yt}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe><p class="hint">如果某个视频不允许内嵌，就只能打开原网站播放。<br><a target="_blank" href="https://www.youtube.com/watch?v=${yt}">直接打开 YouTube</a></p>`; const bili=url.match(/bilibili\.com\/video\/(BV[\w]+)/); if(bili)return `<iframe src="https://player.bilibili.com/player.html?bvid=${bili[1]}&autoplay=1" allowfullscreen></iframe>`; if(url.includes("music.apple.com")){ const embed=url.replace("https://music.apple.com","https://embed.music.apple.com"); return `<iframe allow="autoplay *; encrypted-media *;" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation" src="${embed}"></iframe>`; } return `<div class="embed-fallback"><p>这个链接不支持直接内嵌。<br><a href="${escapeHtml(url)}" target="_blank">点这里打开</a></p></div>`; }
-
+ 
 function initProfile(){ const icons=["💧","🌷","☁️","🌙","⭐","📚","🎧","🧸","🐰","🦢","🕯️","🍓","🫧","🍵","🪻","🦋"]; $("#iconPicker").innerHTML=icons.map(i=>`<button class="icon-option" data-icon="${i}">${i}</button>`).join(""); $$(".icon-option").forEach(btn=>{btn.onclick=()=>{const data=getData();data.profile.avatar=btn.dataset.icon;saveData(data);renderProfile();};}); $("#saveProfile").onclick=()=>{const data=getData();data.profile.name=$("#profileName").value.trim()||"朋友";data.profile.numberFont=$("#numberFont").value;saveData(data);applyProfile(data.profile);renderProfile();}; }
 function renderProfile(){ if(!cloudData)return; const data=getData(); $("#avatarPreview").textContent=data.profile.avatar||"💧"; $("#profileName").value=data.profile.name||""; $("#numberFont").value=data.profile.numberFont||"Quicksand"; $$(".icon-option").forEach(btn=>btn.classList.toggle("active",btn.dataset.icon===data.profile.avatar)); }
-
+ 
 function renderAll(){ tickClock(); renderTimer(); renderTodos(); renderCountdowns(); renderCalendar(); renderStats(); renderHistory(); renderProfile(); refreshPomodoroTaskOptions(); restorePage(); restoreTimerState(); }
-
+ 
 initAuth(); initNav(); initAudio(); initTodos(); initCountdowns(); initCalendar(); initStudyRoom(); initProfile();
-
+ 
 window.addEventListener("beforeunload",()=>{ saveCloudData(); });
-
-
-
+ 
+ 
+ 
 function hasSupabaseStoredToken(){
   try{
     return Object.keys(localStorage).some(k => k.includes("supabase") || k.includes("auth-token") || k.startsWith("sb-"));
@@ -845,39 +846,39 @@ function hasSupabaseStoredToken(){
     return false;
   }
 }
-
+ 
 function clearManualLogoutFlag(){
   manualLogout = false;
   localStorage.removeItem("xiaoshuidi-manual-logout");
 }
-
+ 
 /* =========================
    AUTH FIX: refresh should stay logged in
    ========================= */
 let __bootingAuth = false;
 let __enteredOnce = false;
-
+ 
 function showLoginPage(){
   const authPage = document.getElementById("authPage");
   const mainPage = document.getElementById("mainPage");
   if(authPage) authPage.classList.remove("hidden");
   if(mainPage) mainPage.classList.add("hidden");
 }
-
+ 
 function showAppShell(){
   const authPage = document.getElementById("authPage");
   const mainPage = document.getElementById("mainPage");
   if(authPage) authPage.classList.add("hidden");
   if(mainPage) mainPage.classList.remove("hidden");
 }
-
+ 
 async function stableEnter(session){
   if(!session || !session.user) return false;
   if(__enteredOnce && currentSession?.user?.id === session.user.id) return true;
-
+ 
   currentSession = session;
   currentUser = session.user.email || session.user.id;
-
+ 
   try{
     const authMsg = document.getElementById("authMsg");
     if(authMsg) authMsg.textContent = "正在读取数据...";
@@ -899,65 +900,46 @@ async function stableEnter(session){
     return true;
   }
 }
-
+ 
 async function bootAuthSession(){
-  if(__bootingAuth) return;
+  // onAuthStateChange with INITIAL_SESSION is the primary auth entry point.
+  // This is a fallback for environments where the event fires before our listener attaches.
+  if(__bootingAuth || __enteredOnce) return;
   __bootingAuth = true;
-
   try{
-    // Prevent a false logout flash while Supabase restores localStorage session.
-    const authMsg = document.getElementById("authMsg");
-    if(authMsg) authMsg.textContent = "正在读取数据...";
-
-    let result = await supabaseClient.auth.getSession();
-    let session = result?.data?.session;
-
-    // Retry once because Chrome sometimes returns null immediately after reload.
-    if(!session){
-      await new Promise(resolve => setTimeout(resolve, 500));
-      result = await supabaseClient.auth.getSession();
-      session = result?.data?.session;
-    }
-
-    if(session){
-      await stableEnter(session);
-    }else{
-      const wasManual = localStorage.getItem("xiaoshuidi-manual-logout") === "1";
-      if(hasSupabaseStoredToken() && !wasManual){
-        // Chrome sometimes restores the Supabase session slowly.
-        for(let i=0;i<4;i++){
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const retry = await supabaseClient.auth.getSession();
-          session = retry?.data?.session;
-          if(session) break;
-        }
-        if(session){
-          await stableEnter(session);
-        }else{
-          // Do not treat this as a real logout; enter with local backup/default shell.
-          cloudData = getLocalBackup({user:{id:"local", email: currentUser || ""}}) || defaultData(currentUser || "");
-          showAppShell();
-          applyProfile(getData().profile);
-          renderAll();
-          __enteredOnce = true;
-        }
-      }else{
-        showLoginPage();
-        if(typeof tickClock === "function") tickClock();
-        if(typeof renderTimer === "function") renderTimer();
-      }
+    const { data } = await supabaseClient.auth.getSession();
+    if(data?.session && !__enteredOnce){
+      await stableEnter(data.session);
     }
   }catch(err){
     console.error("读取登录状态失败：", err);
-    showLoginPage();
   }finally{
     __bootingAuth = false;
   }
 }
-
+ 
 supabaseClient.auth.onAuthStateChange(async (event, session)=>{
   if((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") && session){
     await stableEnter(session);
+    return;
+  }
+  // INITIAL_SESSION with no session = truly not logged in
+  if(event === "INITIAL_SESSION" && !session){
+    const wasManual = localStorage.getItem("xiaoshuidi-manual-logout") === "1";
+    if(!wasManual){
+      // Try one more time in case Supabase was slow to restore
+      await new Promise(r => setTimeout(r, 600));
+      const { data } = await supabaseClient.auth.getSession();
+      if(data?.session){
+        await stableEnter(data.session);
+        return;
+      }
+    }
+    __enteredOnce = false;
+    currentSession = null;
+    currentUser = null;
+    showLoginPage();
+    return;
   }
   if(event === "SIGNED_OUT"){
     const wasManual = manualLogout || localStorage.getItem("xiaoshuidi-manual-logout") === "1";
@@ -966,16 +948,15 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
       currentSession = null;
       currentUser = null;
       showLoginPage();
-    }else{
-      // Ignore accidental SIGNED_OUT during refresh/session restoration.
-      console.warn("忽略刷新时的临时 SIGNED_OUT");
-      bootAuthSession();
     }
+    // Non-manual SIGNED_OUT (e.g. during refresh) — ignore completely,
+    // INITIAL_SESSION will handle the correct state.
   }
 });
-
+ 
 if(document.readyState === "loading"){
   document.addEventListener("DOMContentLoaded", bootAuthSession);
 }else{
   bootAuthSession();
 }
+ 
