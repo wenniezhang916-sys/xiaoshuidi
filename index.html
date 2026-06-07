@@ -68,6 +68,7 @@
         <button class="nav-btn" data-page="todos">待办清单</button>
         <button class="nav-btn" data-page="countdowns">倒数日</button>
         <button class="nav-btn" data-page="calendar">打卡日历</button>
+        <button class="nav-btn" data-page="stats">学习统计</button>
         <button class="nav-btn" data-page="studyroom">自习室</button>
         <button class="nav-btn" data-page="profile">个人主页</button>
       </nav>
@@ -122,6 +123,19 @@
         <div class="block-title centered">
           <h2>番茄钟</h2>
           <p class="hint">专注项目会自动计入打卡日历。</p>
+        </div>
+
+        <div class="pomodoro-extra">
+          <label>从待办选择</label>
+          <select id="pomodoroTaskSelect">
+            <option value="">不关联待办</option>
+          </select>
+
+          <label>计时模式</label>
+          <div class="mode-switch">
+            <button id="modePomodoro" class="mode-btn active" type="button">番茄倒计时</button>
+            <button id="modeCountup" class="mode-btn" type="button">正向计时</button>
+          </div>
         </div>
 
         <input id="focusProject" class="project-input" placeholder="专注项目名称，例如 阅读 / 作业 / 复习" />
@@ -206,10 +220,47 @@
       </div>
     </section>
 
+
+    <section id="stats" class="page">
+      <div class="card block">
+        <h2>学习统计</h2>
+        <p class="hint">这里会根据番茄钟、自习室和打卡日历自动生成每日 / 每周报告。</p>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span>今日学习</span>
+            <strong id="statToday">0 分钟</strong>
+          </div>
+          <div class="stat-card">
+            <span>本周学习</span>
+            <strong id="statWeek">0 分钟</strong>
+          </div>
+          <div class="stat-card">
+            <span>本月学习</span>
+            <strong id="statMonth">0 分钟</strong>
+          </div>
+          <div class="stat-card">
+            <span>完成任务</span>
+            <strong id="statDoneTasks">0 个</strong>
+          </div>
+        </div>
+
+        <div class="report-card">
+          <h3>今日学习报告</h3>
+          <div id="dailyReport" class="report-text"></div>
+        </div>
+
+        <div class="report-card">
+          <h3>本周学习报告</h3>
+          <div id="weeklyReport" class="report-text"></div>
+        </div>
+      </div>
+    </section>
+
     <section id="studyroom" class="page">
       <div class="card block">
         <h2>自习室</h2>
-        <p class="hint">GitHub Pages 版为本地模拟。真正多人实时连线以后可以接免费 Supabase。</p>
+        <p class="hint">输入同一个加入码即可进入同一个实时自习室。房间内会显示每个人在学什么、今日学习时长和排行榜。</p>
 
         <div class="add-row wrap">
           <input id="roomName" placeholder="自习室名称">
