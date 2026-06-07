@@ -17,6 +17,7 @@ let authMode = "login";
 let currentUser = null;
 let currentSession = null;
 let cloudData = null;
+let manualLogout = false;
 
 let timer = null;
 let timerMode = "pomodoro";
@@ -332,6 +333,8 @@ function initNav(){
   };
 
   $("#logoutBtn").onclick=async()=>{
+    manualLogout = true;
+    localStorage.setItem("xiaoshuidi-manual-logout", "1");
     await saveCloudData();
     await supabaseClient.auth.signOut();
     currentSession = null;
@@ -746,6 +749,20 @@ initAuth(); initNav(); initAudio(); initTodos(); initCountdowns(); initCalendar(
 window.addEventListener("beforeunload",()=>{ saveCloudData(); });
 
 
+
+function hasSupabaseStoredToken(){
+  try{
+    return Object.keys(localStorage).some(k => k.includes("supabase") || k.includes("auth-token") || k.startsWith("sb-"));
+  }catch(e){
+    return false;
+  }
+}
+
+function clearManualLogoutFlag(){
+  manualLogout = false;
+  localStorage.removeItem("xiaoshuidi-manual-logout");
+}
+
 /* =========================
    AUTH FIX: refresh should stay logged in
    ========================= */
@@ -781,6 +798,7 @@ async function stableEnter(session){
     applyProfile(getData().profile);
     renderAll();
     __enteredOnce = true;
+    clearManualLogoutFlag();
     return true;
   }catch(err){
     console.error("自动恢复登录失败，使用本地缓存进入：", err);
@@ -789,6 +807,7 @@ async function stableEnter(session){
     applyProfile(getData().profile);
     renderAll();
     __enteredOnce = true;
+    clearManualLogoutFlag();
     return true;
   }
 }
@@ -815,9 +834,30 @@ async function bootAuthSession(){
     if(session){
       await stableEnter(session);
     }else{
-      showLoginPage();
-      if(typeof tickClock === "function") tickClock();
-      if(typeof renderTimer === "function") renderTimer();
+      const wasManual = localStorage.getItem("xiaoshuidi-manual-logout") === "1";
+      if(hasSupabaseStoredToken() && !wasManual){
+        // Chrome sometimes restores the Supabase session slowly.
+        for(let i=0;i<4;i++){
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const retry = await supabaseClient.auth.getSession();
+          session = retry?.data?.session;
+          if(session) break;
+        }
+        if(session){
+          await stableEnter(session);
+        }else{
+          // Do not treat this as a real logout; enter with local backup/default shell.
+          cloudData = getLocalBackup({user:{id:"local", email: currentUser || ""}}) || defaultData(currentUser || "");
+          showAppShell();
+          applyProfile(getData().profile);
+          renderAll();
+          __enteredOnce = true;
+        }
+      }else{
+        showLoginPage();
+        if(typeof tickClock === "function") tickClock();
+        if(typeof renderTimer === "function") renderTimer();
+      }
     }
   }catch(err){
     console.error("读取登录状态失败：", err);
@@ -832,10 +872,17 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
     await stableEnter(session);
   }
   if(event === "SIGNED_OUT"){
-    __enteredOnce = false;
-    currentSession = null;
-    currentUser = null;
-    showLoginPage();
+    const wasManual = manualLogout || localStorage.getItem("xiaoshuidi-manual-logout") === "1";
+    if(wasManual){
+      __enteredOnce = false;
+      currentSession = null;
+      currentUser = null;
+      showLoginPage();
+    }else{
+      // Ignore accidental SIGNED_OUT during refresh/session restoration.
+      console.warn("忽略刷新时的临时 SIGNED_OUT");
+      bootAuthSession();
+    }
   }
 });
 
