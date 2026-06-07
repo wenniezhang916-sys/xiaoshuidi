@@ -169,16 +169,19 @@ button{
 }
 .full{width:100%;margin-top:18px}
 .topbar{
-  width:min(1180px,calc(100% - 28px));
-  margin:14px auto 0;
-  padding:12px;
+  width:100%;
+  margin:0;
+  padding:12px 18px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:14px;
-  position:sticky;
-  top:14px;
-  z-index:10;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:9999;
+  border-radius:0;
 }
 .nav{
   flex:1;
@@ -200,7 +203,7 @@ button{
 .page{
   display:none;
   width:min(1080px,calc(100% - 28px));
-  margin:22px auto 120px;
+  margin:110px auto 120px;
 }
 .page.active{display:block}
 .clock-card{
@@ -507,7 +510,7 @@ body.dark .clock-inner{
   border-radius:16px;
 }
 @media(max-width:900px){
-  .topbar{align-items:flex-start;flex-direction:column}
+  .topbar{align-items:center;flex-direction:row}
   .nav{width:100%;justify-content:flex-start}
   .top-actions{width:100%;justify-content:flex-end}
   .two-col{grid-template-columns:1fr}
