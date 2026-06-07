@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css" />
+  <link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#c7b299">
 </head>
 <body>
   <div class="background-soft"></div>
@@ -376,6 +378,11 @@
   })();
   </script>
   <script src="./app.js?v=2026060704"></script>
+  <script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js");
+}
+</script>
 </body>
 </html>
 </html>
