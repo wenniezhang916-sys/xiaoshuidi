@@ -966,20 +966,19 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
     await stableEnter(session);
     return;
   }
-  // INITIAL_SESSION with no session = try manual refresh before giving up
+  // INITIAL_SESSION with no session: only show login if earlySessionRestore
+  // hasn't already entered the app (it runs before onAuthStateChange)
   if(event === "INITIAL_SESSION" && !session){
+    if(__enteredOnce) return; // earlySessionRestore already handled it
     const wasManual = localStorage.getItem("xiaoshuidi-manual-logout") === "1";
+    if(!wasManual && window.__hasStoredToken){
+      // earlySessionRestore is running concurrently — wait for it
+      await new Promise(r => setTimeout(r, 2000));
+      if(__enteredOnce) return;
+    }
     if(!wasManual){
-      // First try a short wait + getSession
-      await new Promise(r => setTimeout(r, 400));
-      const { data } = await supabaseClient.auth.getSession();
-      if(data?.session){ await stableEnter(data.session); return; }
-      // Then try silent re-login with stored credentials
       const relogged = await silentReLogin();
       if(relogged){ await stableEnter(relogged); return; }
-      // Finally try refresh_token
-      const recovered = await tryRefreshFromStorage();
-      if(recovered){ await stableEnter(recovered); return; }
     }
     __enteredOnce = false;
     currentSession = null;
@@ -987,6 +986,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
     showLoginPage();
     return;
   }
+  // SIGNED_OUT: only act on manual logout
   if(event === "SIGNED_OUT"){
     const wasManual = manualLogout || localStorage.getItem("xiaoshuidi-manual-logout") === "1";
     if(wasManual){
@@ -995,8 +995,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
       currentUser = null;
       showLoginPage();
     }
-    // Non-manual SIGNED_OUT (e.g. during refresh) — ignore completely,
-    // INITIAL_SESSION will handle the correct state.
+    // Non-manual SIGNED_OUT — ignore completely
   }
 });
 
@@ -1058,6 +1057,11 @@ async function earlySessionRestore(){
 async function init(){
   const wasManual = localStorage.getItem("xiaoshuidi-manual-logout") === "1";
   if(!wasManual){
+    // Show loading state immediately to prevent flash to login page
+    if(window.__hasStoredToken){
+      const authMsg = document.getElementById("authMsg");
+      if(authMsg) authMsg.textContent = "正在读取数据...";
+    }
     const restored = await earlySessionRestore();
     if(restored) return;
   }
