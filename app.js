@@ -1000,8 +1000,73 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
   }
 });
 
+// Aggressive session restore: read localStorage token directly and use REST API
+// This runs immediately, before Supabase SDK's own session restore logic
+async function earlySessionRestore(){
+  try{
+    const storageKey = 'sb-huyifomichrbcvxxwmtm-auth-token';
+    const raw = localStorage.getItem(storageKey);
+    if(!raw) return false;
+    const stored = JSON.parse(raw);
+    const accessToken = stored?.access_token;
+    const refreshToken = stored?.refresh_token;
+    if(!accessToken && !refreshToken) return false;
+
+    // Try to use the access token directly first (fastest)
+    if(accessToken){
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { "Authorization": `Bearer ${accessToken}`, "apikey": SUPABASE_KEY }
+      });
+      if(res.ok){
+        // Access token still valid — set it in the SDK
+        const { data } = await supabaseClient.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        if(data?.session){
+          await stableEnter(data.session);
+          return true;
+        }
+      }
+    }
+
+    // Access token expired — try refresh token via REST
+    if(refreshToken){
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      if(res.ok){
+        const data = await res.json();
+        if(data?.access_token){
+          const { data: sd } = await supabaseClient.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token
+          });
+          if(sd?.session){
+            await stableEnter(sd.session);
+            return true;
+          }
+        }
+      }
+    }
+  }catch(e){ console.warn("earlySessionRestore failed:", e); }
+  return false;
+}
+
+async function init(){
+  const wasManual = localStorage.getItem("xiaoshuidi-manual-logout") === "1";
+  if(!wasManual){
+    const restored = await earlySessionRestore();
+    if(restored) return;
+  }
+  // Fall back to Supabase SDK boot
+  await bootAuthSession();
+}
+
 if(document.readyState === "loading"){
-  document.addEventListener("DOMContentLoaded", bootAuthSession);
+  document.addEventListener("DOMContentLoaded", init);
 }else{
-  bootAuthSession();
+  init();
 }
