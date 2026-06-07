@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小水滴</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;500;600&family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="background-soft"></div>
+
+  <section id="authPage" class="auth-page">
+    <div class="auth-card card">
+      <div class="logo-wrap">
+        <div class="logo">💧</div>
+        <div>
+          <h1>小水滴</h1>
+          <p>记录时间、专注、待办和每一天的小小进步。</p>
+        </div>
+      </div>
+
+      <div class="social-login">
+        <button class="soft-btn social" data-provider="Google">Google 登录</button>
+        <button class="soft-btn social" data-provider="微信">微信登录</button>
+        <button class="soft-btn social" data-provider="QQ">QQ 登录</button>
+      </div>
+
+      <div class="divider"><span>或者使用 ID 登录</span></div>
+
+      <div class="auth-tabs">
+        <button class="tab active" data-auth="login">登录</button>
+        <button class="tab" data-auth="register">注册</button>
+      </div>
+
+      <label>账号 ID</label>
+      <input id="authId" placeholder="输入你的 ID" autocomplete="username" />
+      <label>密码</label>
+      <input id="authPwd" type="password" placeholder="输入密码" autocomplete="current-password" />
+      <button id="authBtn" class="primary full">进入小水滴</button>
+      <p id="authMsg" class="hint"></p>
+    </div>
+  </section>
+
+  <main id="mainPage" class="hidden">
+    <header class="topbar card">
+      <div class="brand">
+        <div class="logo small">💧</div>
+        <div>
+          <strong>小水滴</strong>
+          <span id="helloText">今天也慢慢来。</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-btn active" data-page="clock">时钟</button>
+        <button class="nav-btn" data-page="pomodoro">番茄钟</button>
+        <button class="nav-btn" data-page="todos">待办清单</button>
+        <button class="nav-btn" data-page="countdowns">倒数日</button>
+        <button class="nav-btn" data-page="calendar">打卡日历</button>
+        <button class="nav-btn" data-page="studyroom">自习室</button>
+        <button class="nav-btn" data-page="profile">个人主页</button>
+      </nav>
+
+      <div class="top-actions">
+        <button id="themeToggle" class="soft-btn">夜间</button>
+        <button id="logoutBtn" class="soft-btn">退出</button>
+      </div>
+    </header>
+
+    <section id="clock" class="page active">
+      <div class="clock-card card">
+        <div class="clock-inner">
+          <p class="eyebrow">现在的时间</p>
+          <div id="clockTime" class="time-display">00:00:00</div>
+          <p id="clockDate" class="date-text"></p>
+          <p id="warmText" class="warm-text">慢慢来，也是在向前走。</p>
+        </div>
+      </div>
+
+      <div class="card block">
+        <div class="block-title">
+          <div>
+            <h2>白噪音 / 音乐</h2>
+            <p class="hint">内置声音会持续播放，切换页面不会中断。</p>
+          </div>
+        </div>
+
+        <div class="sound-grid">
+          <button class="sound-btn" data-sound="rain">轻雨</button>
+          <button class="sound-btn" data-sound="library">图书馆</button>
+          <button class="sound-btn" data-sound="cafe">咖啡厅</button>
+          <button class="sound-btn" data-sound="forest">森林</button>
+          <button class="sound-btn" data-sound="brown">低频专注</button>
+          <button class="sound-btn" data-sound="none">停止</button>
+        </div>
+
+        <div class="volume-row">
+          <span>音量</span>
+          <input id="soundVolume" type="range" min="0" max="100" value="24">
+        </div>
+
+        <div class="music-row">
+          <input id="musicUrl" placeholder="粘贴 YouTube / Bilibili / Apple Music 链接" />
+          <button id="loadMusic" class="primary">打开播放器</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="pomodoro" class="page">
+      <div class="card pomodoro-card">
+        <div class="block-title centered">
+          <h2>番茄钟</h2>
+          <p class="hint">专注项目会自动计入打卡日历。</p>
+        </div>
+
+        <input id="focusProject" class="project-input" placeholder="专注项目名称，例如 阅读 / 作业 / 复习" />
+
+        <div class="timer-ring-wrap">
+          <div id="timerRing" class="timer-ring" style="--progress:0deg">
+            <div class="timer-ring-inner">
+              <div id="timerDisplay" class="timer-text">25:00</div>
+              <p id="timerStatus" class="hint">准备开始</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="timer-settings">
+          <label>专注分钟 <input id="focusMinutes" type="number" min="1" value="25"></label>
+          <label>休息分钟 <input id="breakMinutes" type="number" min="1" value="5"></label>
+        </div>
+
+        <div class="button-row center">
+          <button id="startTimer" class="primary">开始</button>
+          <button id="pauseTimer" class="soft-btn">暂停</button>
+          <button id="resetTimer" class="soft-btn">重置</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="todos" class="page">
+      <div class="two-col">
+        <div class="card block">
+          <h2>Daily 清单</h2>
+          <p class="hint">适合每天坚持的事情，可以记录打卡次数。</p>
+          <div class="add-row">
+            <input id="dailyInput" placeholder="例如 背单词 / 拉伸 / 阅读">
+            <button id="addDaily" class="primary">添加</button>
+          </div>
+          <div id="dailyList" class="list"></div>
+        </div>
+
+        <div class="card block">
+          <h2>普通任务</h2>
+          <p class="hint">适合不需要每天重复，但需要完成的任务。</p>
+          <div class="add-row">
+            <input id="taskInput" placeholder="例如 写论文 / 交作业 / 预约">
+            <button id="addTask" class="primary">添加</button>
+          </div>
+          <div id="taskList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="countdowns" class="page">
+      <div class="card block">
+        <h2>倒数日</h2>
+        <p class="hint">可以按考试、作业、旅行、生日等分类。</p>
+        <div class="add-row wrap">
+          <input id="countTitle" placeholder="事件名称">
+          <input id="countDate" type="date">
+          <select id="countFolder">
+            <option>考试</option>
+            <option>作业</option>
+            <option>旅行</option>
+            <option>生日</option>
+            <option>生活</option>
+          </select>
+          <button id="addCountdown" class="primary">新建倒数日</button>
+        </div>
+        <div id="countdownList" class="card-grid"></div>
+      </div>
+    </section>
+
+    <section id="calendar" class="page">
+      <div class="card block">
+        <h2>打卡日历</h2>
+        <p class="hint">Daily、任务、番茄钟和自习室记录都会显示在这里。</p>
+        <div id="calendarGrid" class="calendar-grid"></div>
+
+        <div class="note-box">
+          <h3>每日学习心得</h3>
+          <textarea id="dailyNote" placeholder="今天学了什么？状态怎么样？"></textarea>
+          <button id="saveNote" class="primary">保存心得</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="studyroom" class="page">
+      <div class="card block">
+        <h2>自习室</h2>
+        <p class="hint">GitHub Pages 版为本地模拟。真正多人实时连线以后可以接免费 Supabase。</p>
+
+        <div class="add-row wrap">
+          <input id="roomName" placeholder="自习室名称">
+          <input id="roomCode" placeholder="加入码，例如 1234">
+          <button id="joinRoom" class="primary">加入 / 创建</button>
+        </div>
+
+        <div id="roomPanel" class="hidden">
+          <h3 id="roomTitle"></h3>
+          <div class="add-row">
+            <input id="studyWhat" placeholder="我现在在学什么">
+            <button id="updateStudyWhat" class="soft-btn">更新</button>
+          </div>
+
+          <div class="button-row">
+            <button id="startStudy" class="primary">开始学习</button>
+            <button id="stopStudy" class="soft-btn">停止</button>
+          </div>
+
+          <h3>连线座位（最多 8 人）</h3>
+          <div id="seatGrid" class="seat-grid"></div>
+
+          <h3>今日排行榜</h3>
+          <div id="rankList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="profile" class="page">
+      <div class="card profile-card">
+        <h2>个人主页</h2>
+        <div id="avatarPreview" class="avatar">💧</div>
+
+        <label>选择头像图标</label>
+        <div id="iconPicker" class="icon-picker"></div>
+
+        <label>显示 ID</label>
+        <input id="profileName" placeholder="输入显示名称">
+
+        <label>数字字体</label>
+        <select id="numberFont">
+          <option value="Quicksand">Quicksand</option>
+          <option value="Nunito">Nunito</option>
+          <option value="Playfair Display">Playfair Display</option>
+          <option value="Noto Serif SC">Noto Serif SC</option>
+        </select>
+
+        <button id="saveProfile" class="primary full">保存个人资料</button>
+
+        <div class="member-box">
+          <h3>会员功能预留</h3>
+          <p class="hint">以后可以在这里接充值解锁，例如高级统计、更多主题、多人自习室等。</p>
+          <button class="soft-btn" disabled>暂未开放</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside id="floatingPlayer" class="floating-player collapsed">
+    <button id="playerToggle">音乐播放器 ▲</button>
+    <div class="player-body">
+      <div id="embedBox" class="embed-box">
+        <p class="hint">播放器可以收起，减少遮挡。</p>
+      </div>
+    </div>
+  </aside>
+
+  <script src="./app.js"></script>
+</body>
+</html>
