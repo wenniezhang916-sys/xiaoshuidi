@@ -1,0 +1,22 @@
+{
+  "name": "小水滴",
+  "short_name": "小水滴",
+  "description": "学习时间管理与线上自习室",
+  "start_url": "/xiaoshuidi/",
+  "display": "standalone",
+  "background_color": "#f8f6f1",
+  "theme_color": "#c7b299",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
