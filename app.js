@@ -1,8 +1,16 @@
+const SUPABASE_URL = "PASTE_YOUR_SUPABASE_URL_HERE";
+const SUPABASE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE";
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
 let authMode = "login";
 let currentUser = null;
+let currentSession = null;
+let cloudData = null;
+
 let timer = null;
 let timerLeft = 25 * 60;
 let timerTotal = 25 * 60;
@@ -10,6 +18,7 @@ let timerRunning = false;
 let audioCtx = null;
 let currentSoundNodes = [];
 let studyStartedAt = null;
+let saveTimer = null;
 
 const todayKey = () => new Date().toISOString().slice(0,10);
 const uid = () => Math.random().toString(36).slice(2,10);
@@ -19,17 +28,11 @@ function escapeHtml(str){
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
   }[m]));
 }
-function getUsers(){ return JSON.parse(localStorage.getItem("xsd_users_v3") || "{}"); }
-function setUsers(users){ localStorage.setItem("xsd_users_v3", JSON.stringify(users)); }
-function getData(){ return getUsers()[currentUser]?.data; }
-function saveData(data){
-  const users = getUsers();
-  users[currentUser].data = data;
-  setUsers(users);
-}
-function defaultData(id){
+
+function defaultData(email){
+  const name = email?.split("@")[0] || "朋友";
   return {
-    profile:{ name:id, avatar:"💧", theme:"light", numberFont:"Quicksand" },
+    profile:{ name, avatar:"💧", theme:"light", numberFont:"Quicksand" },
     daily:[],
     tasks:[],
     countdowns:[],
@@ -38,6 +41,50 @@ function defaultData(id){
     room:null
   };
 }
+
+function getData(){
+  return cloudData;
+}
+
+function saveData(data){
+  cloudData = data;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveCloudData, 350);
+}
+
+async function saveCloudData(){
+  if(!currentSession?.user || !cloudData) return;
+  const { error } = await supabaseClient
+    .from("app_data")
+    .upsert({
+      user_id: currentSession.user.id,
+      data: cloudData,
+      updated_at: new Date().toISOString()
+    });
+  if(error) console.error("保存失败：", error);
+}
+
+async function loadCloudData(session){
+  const { data, error } = await supabaseClient
+    .from("app_data")
+    .select("data")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  if(error){
+    console.error("读取失败：", error);
+  }
+
+  if(data?.data){
+    cloudData = data.data;
+  }else{
+    cloudData = defaultData(session.user.email);
+    await supabaseClient
+      .from("app_data")
+      .insert({ user_id: session.user.id, data: cloudData });
+  }
+}
+
 function logEvent(text, minutes=0, type="记录"){
   const data = getData();
   const day = todayKey();
@@ -65,52 +112,74 @@ function initAuth(){
   });
 
   $$(".social").forEach(btn=>{
-    btn.onclick=()=>{
-      $("#authMsg").textContent = `${btn.dataset.provider} 登录需要接入 OAuth。GitHub Pages 静态版先保留入口。`;
+    btn.onclick=async()=>{
+      const provider = btn.dataset.provider;
+      if(provider !== "Google"){
+        $("#authMsg").textContent = `${provider} 登录需要国内开发者平台审核，先预留入口。`;
+        return;
+      }
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider:"google",
+        options:{
+          redirectTo: window.location.origin + window.location.pathname
+        }
+      });
+      if(error) $("#authMsg").textContent = error.message;
     };
   });
 
-  $("#authBtn").onclick=()=>{
-    const id = $("#authId").value.trim();
-    const pwd = $("#authPwd").value.trim();
-    const users = getUsers();
+  $("#authBtn").onclick=async()=>{
+    const email = $("#authId").value.trim();
+    const password = $("#authPwd").value.trim();
 
-    if(!id || !pwd){
-      $("#authMsg").textContent = "账号和密码都要填。";
+    if(!email || !password){
+      $("#authMsg").textContent = "邮箱和密码都要填。";
       return;
     }
 
+    $("#authMsg").textContent = "正在处理…";
+
+    let result;
     if(authMode === "register"){
-      if(users[id]){
-        $("#authMsg").textContent = "这个 ID 已经注册过了。";
+      result = await supabaseClient.auth.signUp({ email, password });
+      if(result.error){
+        $("#authMsg").textContent = result.error.message;
         return;
       }
-      users[id] = { pwd, data:defaultData(id) };
-      setUsers(users);
+      if(!result.data.session){
+        $("#authMsg").textContent = "注册成功。请去邮箱确认后再登录。";
+        return;
+      }
     }else{
-      if(!users[id] || users[id].pwd !== pwd){
-        $("#authMsg").textContent = "账号或密码不对。";
+      result = await supabaseClient.auth.signInWithPassword({ email, password });
+      if(result.error){
+        $("#authMsg").textContent = result.error.message;
         return;
       }
     }
 
-    localStorage.setItem("xsd_current_v3", id);
-    enterApp(id);
+    await enterApp(result.data.session);
   };
 }
-function enterApp(id){
-  currentUser = id;
+
+async function enterApp(session){
+  currentSession = session;
+  currentUser = session.user.email;
+  await loadCloudData(session);
+
   $("#authPage").classList.add("hidden");
   $("#mainPage").classList.remove("hidden");
   applyProfile(getData().profile);
   renderAll();
 }
+
 function applyProfile(profile){
   document.body.classList.toggle("dark", profile.theme === "dark");
   document.documentElement.style.setProperty("--num", `"${profile.numberFont || "Quicksand"}", sans-serif`);
   $("#themeToggle").textContent = profile.theme === "dark" ? "白天" : "夜间";
   $("#helloText").textContent = `${profile.name || "朋友"}，今天也慢慢来。`;
 }
+
 function initNav(){
   $$(".nav-btn").forEach(btn=>{
     btn.onclick=()=>{
@@ -129,8 +198,9 @@ function initNav(){
     applyProfile(data.profile);
   };
 
-  $("#logoutBtn").onclick=()=>{
-    localStorage.removeItem("xsd_current_v3");
+  $("#logoutBtn").onclick=async()=>{
+    await saveCloudData();
+    await supabaseClient.auth.signOut();
     location.reload();
   };
 }
@@ -183,6 +253,7 @@ function initAudio(){
     $("#embedBox").innerHTML = makeEmbed(url);
   };
 }
+
 function ensureAudio(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if(audioCtx.state === "suspended") audioCtx.resume();
@@ -277,7 +348,7 @@ function makeEmbed(url){
   const yt = getYoutubeId(url);
   if(yt){
     return `<iframe src="https://www.youtube.com/embed/${yt}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    <p class="hint">如果本地打开时 YouTube 报错，上传到 GitHub Pages 后通常会正常；也可以 <a target="_blank" href="https://www.youtube.com/watch?v=${yt}">直接打开</a>。</p>`;
+    <p class="hint">如果某个视频不允许内嵌，就只能打开原网站播放。<br><a target="_blank" href="https://www.youtube.com/watch?v=${yt}">直接打开 YouTube</a></p>`;
   }
   const bili = url.match(/bilibili\.com\/video\/(BV[\w]+)/);
   if(bili){
@@ -487,7 +558,7 @@ function initCalendar(){
   };
 }
 function renderCalendar(){
-  if(!currentUser) return;
+  if(!currentUser || !cloudData) return;
   const data = getData();
   const now = new Date();
   const y = now.getFullYear();
@@ -551,7 +622,7 @@ function initStudyRoom(){
   };
 }
 function renderRoom(){
-  if(!currentUser) return;
+  if(!currentUser || !cloudData) return;
   const data = getData();
   if(!data.room){
     $("#roomPanel").classList.add("hidden");
@@ -602,7 +673,7 @@ function initProfile(){
   };
 }
 function renderProfile(){
-  if(!currentUser) return;
+  if(!currentUser || !cloudData) return;
   const data = getData();
   $("#avatarPreview").textContent = data.profile.avatar || "💧";
   $("#profileName").value = data.profile.name || "";
@@ -630,5 +701,17 @@ initCalendar();
 initStudyRoom();
 initProfile();
 
-const saved = localStorage.getItem("xsd_current_v3");
-if(saved && getUsers()[saved]) enterApp(saved);
+supabaseClient.auth.getSession().then(async ({ data })=>{
+  if(data.session){
+    await enterApp(data.session);
+  }else{
+    tickClock();
+    renderTimer();
+  }
+});
+
+supabaseClient.auth.onAuthStateChange(async (event, session)=>{
+  if(event === "SIGNED_IN" && session && !currentSession){
+    await enterApp(session);
+  }
+});

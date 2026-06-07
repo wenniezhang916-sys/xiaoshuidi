@@ -522,3 +522,23 @@ body.dark .clock-inner{
   .icon-picker{grid-template-columns:repeat(4,1fr)}
   .time-display{font-size:58px}
 }
+
+
+/* v3.1 remember login */
+.remember-row{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin:14px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  cursor:pointer;
+}
+.remember-row input{
+  width:auto;
+  margin:0;
+  accent-color:var(--accent);
+}
+.remember-row span{
+  line-height:1.4;
+}

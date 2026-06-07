@@ -35,10 +35,16 @@
         <button class="tab" data-auth="register">注册</button>
       </div>
 
-      <label>账号 ID</label>
-      <input id="authId" placeholder="输入你的 ID" autocomplete="username" />
+      <label>邮箱 / 账号</label>
+      <input id="authId" placeholder="输入邮箱，例如 hello@example.com" autocomplete="username" />
       <label>密码</label>
       <input id="authPwd" type="password" placeholder="输入密码" autocomplete="current-password" />
+
+      <label class="remember-row">
+        <input id="rememberLogin" type="checkbox" checked />
+        <span>保持登录状态，下次自动进入</span>
+      </label>
+
       <button id="authBtn" class="primary full">进入小水滴</button>
       <p id="authMsg" class="hint"></p>
     </div>
@@ -269,6 +275,7 @@
     </div>
   </aside>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
 </html>
