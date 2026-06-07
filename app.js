@@ -725,3 +725,25 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
     }
   }
 });
+const menuToggle = document.getElementById("menuToggle");
+const mobileNav = document.querySelector(".nav");
+
+if(menuToggle && mobileNav){
+
+  menuToggle.addEventListener("click",()=>{
+
+    mobileNav.classList.toggle("open");
+
+  });
+
+  document.querySelectorAll(".nav-btn").forEach(btn=>{
+
+    btn.addEventListener("click",()=>{
+
+      mobileNav.classList.remove("open");
+
+    });
+
+  });
+
+}
