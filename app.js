@@ -389,7 +389,7 @@ function renderTodos(){
       <div class="meta-line">${itemMeta(t)}</div>
       ${progressHtml(t)}
     </div>
-  `).join("") || `<p class="hint">还没有普通任务。</p>";
+  `).join("") || `<p class="hint">还没有普通任务。</p>`;
   refreshPomodoroTaskOptions();
 }
 
