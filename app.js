@@ -90,10 +90,31 @@ function normalizeData(raw, email){
   return data;
 }
 
+
+function getLocalBackup(session){
+  try{
+    const key = session?.user?.id ? `xiaoshuidi-backup-${session.user.id}` : "xiaoshuidi-backup";
+    const raw = localStorage.getItem(key);
+    if(raw) return normalizeData(JSON.parse(raw), session?.user?.email);
+  }catch(e){}
+  return null;
+}
+
+function saveLocalBackup(session, data){
+  try{
+    const key = session?.user?.id ? `xiaoshuidi-backup-${session.user.id}` : "xiaoshuidi-backup";
+    localStorage.setItem(key, JSON.stringify(data));
+  }catch(e){}
+}
+
 function getData(){ return cloudData; }
 
 function saveData(data){
   cloudData = data;
+  try{
+    const key = currentSession?.user?.id ? `xiaoshuidi-backup-${currentSession.user.id}` : "xiaoshuidi-backup";
+    localStorage.setItem(key, JSON.stringify(data));
+  }catch(e){}
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveCloudData, 300);
 }
@@ -111,22 +132,33 @@ async function saveCloudData(){
 }
 
 async function loadCloudData(session){
-  const { data, error } = await supabaseClient
-    .from("app_data")
-    .select("data")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
-
-  if(error) throw new Error("读取云端数据失败：" + error.message);
-
-  if(data?.data){
-    cloudData = normalizeData(data.data, session.user.email);
-  }else{
-    cloudData = defaultData(session.user.email);
-    const { error: insertError } = await supabaseClient
+  try{
+    const { data, error } = await supabaseClient
       .from("app_data")
-      .insert({ user_id: session.user.id, data: cloudData });
-    if(insertError) throw new Error("初始化云端数据失败：" + insertError.message);
+      .select("data")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+
+    if(error) throw error;
+
+    if(data?.data){
+      cloudData = normalizeData(data.data, session.user.email);
+      saveLocalBackup(session, cloudData);
+    }else{
+      const backup = getLocalBackup(session);
+      cloudData = backup || defaultData(session.user.email);
+
+      const { error: insertError } = await supabaseClient
+        .from("app_data")
+        .upsert({ user_id: session.user.id, data: cloudData, updated_at: new Date().toISOString() });
+
+      if(insertError) console.warn("云端初始化失败，先用本地数据进入：", insertError);
+      saveLocalBackup(session, cloudData);
+    }
+  }catch(err){
+    console.warn("云端读取失败，先用本地缓存进入：", err);
+    cloudData = getLocalBackup(session) || defaultData(session.user.email);
+    saveLocalBackup(session, cloudData);
   }
 }
 
@@ -751,11 +783,13 @@ async function stableEnter(session){
     __enteredOnce = true;
     return true;
   }catch(err){
-    console.error("自动恢复登录失败：", err);
-    const authMsg = document.getElementById("authMsg");
-    if(authMsg) authMsg.textContent = "已登录，但读取数据失败。请刷新或稍后再试。";
-    showLoginPage();
-    return false;
+    console.error("自动恢复登录失败，使用本地缓存进入：", err);
+    cloudData = getLocalBackup(session) || defaultData(session.user.email);
+    showAppShell();
+    applyProfile(getData().profile);
+    renderAll();
+    __enteredOnce = true;
+    return true;
   }
 }
 
