@@ -711,7 +711,102 @@ function renderAll(){ tickClock(); renderTimer(); renderTodos(); renderCountdown
 
 initAuth(); initNav(); initAudio(); initTodos(); initCountdowns(); initCalendar(); initStudyRoom(); initProfile();
 
-supabaseClient.auth.onAuthStateChange(async (event, session)=>{ if(event==="SIGNED_IN" && session && !currentSession){ try{ await enterApp(session); }catch(err){ console.error(err); $("#authMsg").textContent="登录成功，但读取数据失败"; } } });
-supabaseClient.auth.getSession().then(async ({data})=>{ if(data.session){ try{ await enterApp(data.session); }catch(err){ console.error(err); $("#authMsg").textContent="自动登录失败，请手动登录。"; tickClock(); renderTimer(); } }else{ tickClock(); renderTimer(); } });
-
 window.addEventListener("beforeunload",()=>{ saveCloudData(); });
+
+
+/* =========================
+   AUTH FIX: refresh should stay logged in
+   ========================= */
+let __bootingAuth = false;
+let __enteredOnce = false;
+
+function showLoginPage(){
+  const authPage = document.getElementById("authPage");
+  const mainPage = document.getElementById("mainPage");
+  if(authPage) authPage.classList.remove("hidden");
+  if(mainPage) mainPage.classList.add("hidden");
+}
+
+function showAppShell(){
+  const authPage = document.getElementById("authPage");
+  const mainPage = document.getElementById("mainPage");
+  if(authPage) authPage.classList.add("hidden");
+  if(mainPage) mainPage.classList.remove("hidden");
+}
+
+async function stableEnter(session){
+  if(!session || !session.user) return false;
+  if(__enteredOnce && currentSession?.user?.id === session.user.id) return true;
+
+  currentSession = session;
+  currentUser = session.user.email || session.user.id;
+
+  try{
+    const authMsg = document.getElementById("authMsg");
+    if(authMsg) authMsg.textContent = "正在读取数据...";
+    await loadCloudData(session);
+    showAppShell();
+    applyProfile(getData().profile);
+    renderAll();
+    __enteredOnce = true;
+    return true;
+  }catch(err){
+    console.error("自动恢复登录失败：", err);
+    const authMsg = document.getElementById("authMsg");
+    if(authMsg) authMsg.textContent = "已登录，但读取数据失败。请刷新或稍后再试。";
+    showLoginPage();
+    return false;
+  }
+}
+
+async function bootAuthSession(){
+  if(__bootingAuth) return;
+  __bootingAuth = true;
+
+  try{
+    // Prevent a false logout flash while Supabase restores localStorage session.
+    const authMsg = document.getElementById("authMsg");
+    if(authMsg) authMsg.textContent = "正在读取数据...";
+
+    let result = await supabaseClient.auth.getSession();
+    let session = result?.data?.session;
+
+    // Retry once because Chrome sometimes returns null immediately after reload.
+    if(!session){
+      await new Promise(resolve => setTimeout(resolve, 500));
+      result = await supabaseClient.auth.getSession();
+      session = result?.data?.session;
+    }
+
+    if(session){
+      await stableEnter(session);
+    }else{
+      showLoginPage();
+      if(typeof tickClock === "function") tickClock();
+      if(typeof renderTimer === "function") renderTimer();
+    }
+  }catch(err){
+    console.error("读取登录状态失败：", err);
+    showLoginPage();
+  }finally{
+    __bootingAuth = false;
+  }
+}
+
+supabaseClient.auth.onAuthStateChange(async (event, session)=>{
+  if((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") && session){
+    await stableEnter(session);
+  }
+  if(event === "SIGNED_OUT"){
+    __enteredOnce = false;
+    currentSession = null;
+    currentUser = null;
+    showLoginPage();
+  }
+});
+
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", bootAuthSession);
+}else{
+  bootAuthSession();
+}
