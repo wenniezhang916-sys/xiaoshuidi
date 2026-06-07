@@ -364,6 +364,14 @@ function initAuth(){
         if(result.error) return showAuthError(result.error.message);
       }
       if(!result?.data?.session) return showAuthError("没有拿到登录状态，请刷新后重试。");
+      // Save credentials for silent re-login on refresh
+      if($("#rememberLogin")?.checked){
+        try{
+          localStorage.setItem("xiaoshuidi-creds", btoa(unescape(encodeURIComponent(JSON.stringify({e: email, p: password})))));
+        }catch(e){}
+      } else {
+        localStorage.removeItem("xiaoshuidi-creds");
+      }
       await enterApp(result.data.session);
     }catch(err){
       showAuthError(err.message);
@@ -900,6 +908,30 @@ async function stableEnter(session){
   }
 }
 
+async function silentReLogin(){
+  // Bypass Supabase session restore by re-authenticating directly via REST API
+  try{
+    const raw = localStorage.getItem("xiaoshuidi-creds");
+    if(!raw) return null;
+    const { e: email, p: password } = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if(!email || !password) return null;
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY },
+      body: JSON.stringify({ email, password })
+    });
+    if(!res.ok) return null;
+    const data = await res.json();
+    if(!data.access_token) return null;
+    // Set the session in Supabase client so subsequent API calls work
+    const { data: sd } = await supabaseClient.auth.setSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token
+    });
+    return sd?.session || null;
+  }catch(e){ return null; }
+}
+
 async function tryRefreshFromStorage(){
   try{
     const key = Object.keys(localStorage).find(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
@@ -919,6 +951,7 @@ async function bootAuthSession(){
   try{
     let { data } = await supabaseClient.auth.getSession();
     let session = data?.session;
+    if(!session) session = await silentReLogin();
     if(!session) session = await tryRefreshFromStorage();
     if(session && !__enteredOnce) await stableEnter(session);
   }catch(err){
@@ -941,7 +974,10 @@ supabaseClient.auth.onAuthStateChange(async (event, session)=>{
       await new Promise(r => setTimeout(r, 400));
       const { data } = await supabaseClient.auth.getSession();
       if(data?.session){ await stableEnter(data.session); return; }
-      // Then try manually refreshing with stored refresh_token
+      // Then try silent re-login with stored credentials
+      const relogged = await silentReLogin();
+      if(relogged){ await stableEnter(relogged); return; }
+      // Finally try refresh_token
       const recovered = await tryRefreshFromStorage();
       if(recovered){ await stableEnter(recovered); return; }
     }
